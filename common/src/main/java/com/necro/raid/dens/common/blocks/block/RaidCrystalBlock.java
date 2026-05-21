@@ -176,7 +176,9 @@ public abstract class RaidCrystalBlock extends BaseEntityBlock {
 
     private void failRaidStart(ServerPlayer player, RaidCrystalBlockEntity blockEntity) {
         RaidDenNetworkMessages.JOIN_RAID.accept(player, false);
-        blockEntity.closeRaid();
+        RaidInstance raid = RaidHelper.ACTIVE_RAIDS.get(blockEntity.getUuid());
+        if (raid != null) raid.closeRaid(player.getServer(), true);
+        else blockEntity.closeRaid();
         player.displayClientMessage(ComponentUtils.getErrorMessage("message.cobblemonraiddens.raid.boss_spawn_failed"), true);
     }
 
