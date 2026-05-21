@@ -105,11 +105,32 @@ public class RaidHelper extends SavedData {
     }
 
     public static void onServerClose(MinecraftServer server) {
-        server.execute(RaidHelper::closeAllRaids);
+        closeAllRaids(server);
     }
 
-    private static void closeAllRaids() {
-        REQUEST_QUEUE.forEach((uuid, handler) -> handler.getBlockEntity().closeRaid());
+    private static void closeAllRaids(MinecraftServer server) {
+        List<RequestHandler> requests = new ArrayList<>(REQUEST_QUEUE.values());
+        for (RequestHandler handler : requests) {
+            try {
+                handler.getBlockEntity().closeRaid();
+            }
+            catch (Exception e) {
+                CobblemonRaidDens.LOGGER.error("Failed to close raid block entity during shutdown", e);
+            }
+        }
+
+        List<RaidInstance> raids = new ArrayList<>(ACTIVE_RAIDS.values());
+        for (RaidInstance raid : raids) {
+            try {
+                raid.closeRaid(server, true);
+            }
+            catch (Exception e) {
+                CobblemonRaidDens.LOGGER.error("Failed to close active raid during shutdown", e);
+            }
+        }
+
+        REQUEST_QUEUE.clear();
+        ACTIVE_RAIDS.clear();
     }
 
     public static void commonTick(MinecraftServer server) {
