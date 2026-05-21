@@ -29,6 +29,7 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -403,7 +404,15 @@ public abstract class RaidCrystalBlockEntity extends BlockEntity implements GeoB
 
     public void syncAspects(ServerPlayer player) {
         if (this.aspectSync == null) return;
-        CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS).execute(() -> this.aspectSync.accept(player));
+
+        MinecraftServer server = player.getServer();
+        if (server == null) return;
+
+        Consumer<ServerPlayer> sync = this.aspectSync;
+        CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS).execute(() -> server.execute(() -> {
+            if (this.aspectSync != sync) return;
+            sync.accept(player);
+        }));
     }
 
     public void setAspectSync(Consumer<ServerPlayer> sync) {

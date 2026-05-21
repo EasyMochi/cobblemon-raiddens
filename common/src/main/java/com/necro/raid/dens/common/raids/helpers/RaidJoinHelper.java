@@ -10,19 +10,19 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 
 public class RaidJoinHelper {
-    private static final Map<Player, JoinRequest> JOIN_QUEUE = new HashMap<>();
+    private static final Map<UUID, JoinRequest> JOIN_QUEUE = new HashMap<>();
     private static final Map<UUID, Participant> RAID_PARTICIPANTS = new HashMap<>();
 
     public static boolean isInQueue(Player player) {
-        return JOIN_QUEUE.containsKey(player);
+        return JOIN_QUEUE.containsKey(player.getUUID());
     }
 
     public static void addToQueue(Player player, @Nullable ItemStack key) {
-        JOIN_QUEUE.put(player, new JoinRequest(player, key));
+        JOIN_QUEUE.put(player.getUUID(), new JoinRequest(player, key));
     }
 
     public static void removeFromQueue(Player player, boolean refund) {
-        JoinRequest joinRequest = JOIN_QUEUE.remove(player);
+        JoinRequest joinRequest = JOIN_QUEUE.remove(player.getUUID());
         if (joinRequest == null) return;
         if (refund) joinRequest.refundItem();
     }
@@ -73,7 +73,7 @@ public class RaidJoinHelper {
     }
 
     public static void onServerClose() {
-        JOIN_QUEUE.forEach((player, instance) -> instance.refundItem());
+        JOIN_QUEUE.forEach((uuid, instance) -> instance.refundItem());
         JOIN_QUEUE.clear();
         RAID_PARTICIPANTS.clear();
     }
@@ -88,9 +88,9 @@ public class RaidJoinHelper {
     }
 
     private static void refundItem(Player player) {
-        if (!JOIN_QUEUE.containsKey(player)) return;
-        JOIN_QUEUE.get(player).refundItem();
-        JOIN_QUEUE.remove(player);
+        JoinRequest joinRequest = JOIN_QUEUE.remove(player.getUUID());
+        if (joinRequest == null) return;
+        joinRequest.refundItem();
     }
 
     public record Participant(UUID raid, boolean isHost) {}
