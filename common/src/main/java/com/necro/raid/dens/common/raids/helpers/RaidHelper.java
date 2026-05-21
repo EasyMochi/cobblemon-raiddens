@@ -49,6 +49,10 @@ public class RaidHelper extends SavedData {
         REQUEST_QUEUE.remove(host);
     }
 
+    public static void removeRequestPlayer(UUID player) {
+        REQUEST_QUEUE.values().forEach(handler -> handler.removePlayer(player));
+    }
+
     public static boolean hasClearedRaid(UUID raid, Player player) {
         Set<UUID> cleared = INSTANCE.CLEARED_RAIDS.getOrDefault(raid, new HashSet<>());
         return cleared.contains(player.getUUID());
