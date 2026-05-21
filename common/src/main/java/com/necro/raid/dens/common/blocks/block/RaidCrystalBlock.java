@@ -163,10 +163,17 @@ public abstract class RaidCrystalBlock extends BaseEntityBlock {
             return false;
         }
 
-        if (!RaidJoinHelper.addParticipant(player, blockEntity.getUuid(), true, true)) return false;
+        if (!RaidJoinHelper.addParticipant(player, blockEntity.getUuid(), true, true)) {
+            this.failRaidStart((ServerPlayer) player, blockEntity);
+            return false;
+        }
         RaidHelper.initRequest((ServerPlayer) player, blockEntity);
 
         RaidInstance raid = RaidHelper.ACTIVE_RAIDS.get(blockEntity.getUuid());
+        if (raid == null) {
+            this.failRaidStart((ServerPlayer) player, blockEntity);
+            return false;
+        }
         raid.addPlayer((ServerPlayer) player);
         RaidUtils.teleportPlayerToRaid((ServerPlayer) player, player.getServer(), region);
         blockEntity.syncAspects((ServerPlayer) player);
@@ -188,7 +195,9 @@ public abstract class RaidCrystalBlock extends BaseEntityBlock {
         if (!key.isEmpty()) {
             if (blockEntity.isOpen()) return true;
             else if (!key.matches(itemStack)) {
-                player.displayClientMessage(ComponentUtils.getSystemMessage(Component.translatable("message.cobblemonraiddens.raid.no_unique_key", key.item().split(":")[1])), true);
+                String item = key.item();
+                String name = item.contains(":") ? item.split(":", 2)[1] : item;
+                player.displayClientMessage(ComponentUtils.getSystemMessage(Component.translatable("message.cobblemonraiddens.raid.no_unique_key", name)), true);
                 return false;
             }
             else if (!CobblemonRaidDens.TIER_CONFIG.get(boss.getTier()).allRequireUniqueKey()) blockEntity.setOpen();
@@ -221,7 +230,7 @@ public abstract class RaidCrystalBlock extends BaseEntityBlock {
         if (data == null) return blockState;
         CompoundTag tag = data.copyTag();
 
-        RaidBoss boss = RaidRegistry.getRaidBoss(ResourceLocation.parse(tag.getString("raid_boss")));
+        RaidBoss boss = this.getSavedRaidBoss(tag);
         if (boss != null) {
             blockState = blockState.setValue(RAID_TYPE, boss.getType()).setValue(RAID_TIER, boss.getTier());
             int clears = tag.getInt("raid_cleared");
@@ -229,6 +238,20 @@ public abstract class RaidCrystalBlock extends BaseEntityBlock {
         }
 
         return blockState;
+    }
+
+    private RaidBoss getSavedRaidBoss(CompoundTag tag) {
+        if (!tag.contains("raid_boss")) return null;
+        String raidBoss = tag.getString("raid_boss");
+        if (raidBoss.isBlank()) return null;
+
+        try {
+            return RaidRegistry.getRaidBoss(ResourceLocation.parse(raidBoss));
+        }
+        catch (Exception e) {
+            CobblemonRaidDens.LOGGER.warn("Ignoring malformed raid boss '{}' in placed raid crystal item", raidBoss);
+            return null;
+        }
     }
 
     @Override

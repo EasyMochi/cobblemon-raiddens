@@ -638,17 +638,20 @@ public class RaidInstance {
     public void closeRaid(MinecraftServer server, boolean wasCancelled) {
         if (this.shouldClearRaid() && this.isInDen) RaidHelper.clearRaid(this.raid, this.activePlayers);
         if (!this.bossEntity.isRemoved()) {
-            ((ServerLevel) this.bossEntity.level()).sendParticles(ParticleTypes.EXPLOSION, this.bossEntity.getX(), this.bossEntity.getY(), this.bossEntity.getZ(), 1, 1.0, 0.0, 0.0, 0.0);
+            if (this.bossEntity.level() instanceof ServerLevel level) {
+                level.sendParticles(ParticleTypes.EXPLOSION, this.bossEntity.getX(), this.bossEntity.getY(), this.bossEntity.getZ(), 1, 1.0, 0.0, 0.0, 0.0);
+            }
             this.bossEntity.discard();
         }
 
         this.bossEvent.removeAllPlayers();
         this.timerEvent.removeAllPlayers();
 
+        ServerLevel raidLevel = server == null ? null : ModDimensions.getRaidDimension(server);
         RaidRegion region = RaidRegionHelper.getRegion(this.raid);
-        if (region != null) region.removeRegionTicket(ModDimensions.getRaidDimension(server));
+        if (region != null && raidLevel != null) region.removeRegionTicket(raidLevel);
 
-        if (this.isInDen) RaidHelper.closeRaid(this.raid, wasCancelled ? RaidState.CANCELLED : this.raidState, ModDimensions.getRaidDimension(server));
+        if (this.isInDen && raidLevel != null) RaidHelper.closeRaid(this.raid, wasCancelled ? RaidState.CANCELLED : this.raidState, raidLevel);
         else RaidHelper.ACTIVE_RAIDS.remove(this.raid);
         if (this.host != null) RaidHelper.removeRequests(this.host);
         RaidJoinHelper.removeParticipants(this.activePlayers);

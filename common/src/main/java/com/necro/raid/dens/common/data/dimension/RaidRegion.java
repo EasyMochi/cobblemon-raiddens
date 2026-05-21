@@ -61,7 +61,7 @@ public class RaidRegion {
     }
 
     public void clearRegion(ServerLevel level) {
-        if (!RaidUtils.isRaidDimension(level)) return;
+        if (level == null || !RaidUtils.isRaidDimension(level)) return;
 
         int minX = this.centre.getX() - RADIUS;
         int maxX = this.centre.getX() + RADIUS;
@@ -128,6 +128,7 @@ public class RaidRegion {
     }
 
     public void removeRegionTicket(ServerLevel level) {
+        if (level == null) return;
         ChunkPos chunkPos = new ChunkPos(this.centre());
         level.getChunkSource().removeRegionTicket(TicketType.FORCED, chunkPos, 1, chunkPos);
     }
