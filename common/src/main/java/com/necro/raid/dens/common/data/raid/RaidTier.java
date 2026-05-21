@@ -94,17 +94,20 @@ public enum RaidTier implements StringRepresentable {
     }
 
     private static void addWeightedMap(String dimension, double[] tierWeights) {
+        double[] safeWeights = tierWeights == null || tierWeights.length == 0
+            ? new double[]{9.0, 15.0, 25.0, 25.0, 20.0, 5.0, 1.0}
+            : tierWeights;
         DoubleWeightedRandomMap<RaidTier> weightedMap = new DoubleWeightedRandomMap<>();
 
-        List<Double> weights = new ArrayList<>(Arrays.stream(tierWeights).boxed().toList());
+        List<Double> weights = new ArrayList<>(Arrays.stream(safeWeights).boxed().toList());
         while (weights.size() < RaidTier.values().length) {
-            weights.add(tierWeights[tierWeights.length - 1]);
+            weights.add(safeWeights[safeWeights.length - 1]);
         }
 
-        for (int i = 0; i < weights.size(); i++) {
+        for (int i = 0; i < RaidTier.values().length; i++) {
             RaidTier tier = RaidTier.values()[i];
             if (!tier.isPresent()) continue;
-            weightedMap.add(RaidTier.values()[i], weights.get(i));
+            weightedMap.add(tier, weights.get(i));
         }
 
         RANDOM_MAP.put(dimension, weightedMap);
@@ -124,9 +127,11 @@ public enum RaidTier implements StringRepresentable {
     }
 
     public double getWeight(Level level) {
+        if (RANDOM_MAP.isEmpty()) RaidTier.updateRandom();
         String levelKey = level.dimension().location().toString();
         if (!RANDOM_MAP.containsKey(levelKey)) levelKey = "minecraft:overworld";
-        return RANDOM_MAP.get(levelKey).getWeight(this);
+        DoubleWeightedRandomMap<RaidTier> weightedMap = RANDOM_MAP.get(levelKey);
+        return weightedMap == null ? 0.0 : weightedMap.getWeight(this);
     }
 
     public static RaidTier fromString(String name) {

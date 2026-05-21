@@ -139,7 +139,7 @@ public record RaidChallengePacket(int targetedEntityId, UUID selectedPokemonId, 
     private void flagAsSeen(PokemonBattle battle, PokemonEntity entity) {
         PokemonBattleActor actor = (PokemonBattleActor) battle.getActor(entity.getPokemon().getUuid());
         if (actor == null) return;
-        Optional<BattlePokemon> battlePokemon = actor.getPokemonList().stream().filter(bp -> bp.getUuid() == entity.getPokemon().getUuid()).findFirst();
+        Optional<BattlePokemon> battlePokemon = actor.getPokemonList().stream().filter(bp -> bp.getUuid().equals(entity.getPokemon().getUuid())).findFirst();
         if (battlePokemon.isEmpty()) return;
 
         battle.getPlayerUUIDs().forEach(uuid ->CobblemonEvents.POKEMON_SEEN.post(

@@ -32,6 +32,10 @@ public class RequestHandler {
     }
 
     public void removePlayer(Player player) {
-        this.players.remove(player.getUUID());
+        this.removePlayer(player.getUUID());
+    }
+
+    public void removePlayer(UUID player) {
+        this.players.remove(player);
     }
 }

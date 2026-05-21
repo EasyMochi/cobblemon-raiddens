@@ -33,6 +33,18 @@ public class RaidJoinHelper {
         return !isParticipating;
     }
 
+    public static boolean addQueuedParticipant(Player player, UUID raid, boolean isHost, boolean sendMessage) {
+        JoinRequest joinRequest = JOIN_QUEUE.remove(player.getUUID());
+        if (joinRequest == null) return false;
+        if (isParticipating(player, sendMessage)) {
+            joinRequest.refundItem();
+            return false;
+        }
+
+        RAID_PARTICIPANTS.put(player.getUUID(), new Participant(raid, isHost));
+        return true;
+    }
+
     public static Participant getParticipant(Player player) {
         return RAID_PARTICIPANTS.get(player.getUUID());
     }
@@ -79,7 +91,16 @@ public class RaidJoinHelper {
     }
 
     public static void serverTick() {
-        JOIN_QUEUE.values().removeIf(instance -> !instance.tick());
+        Iterator<Map.Entry<UUID, JoinRequest>> iterator = JOIN_QUEUE.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, JoinRequest> entry = iterator.next();
+            JoinRequest request = entry.getValue();
+            if (request.tick()) continue;
+
+            request.refundItem();
+            RaidHelper.removeRequestPlayer(entry.getKey());
+            iterator.remove();
+        }
     }
 
     public static void onPlayerDisconnect(Player player) {
