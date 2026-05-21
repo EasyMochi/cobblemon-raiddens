@@ -82,7 +82,7 @@ public class ShowdownEvents {
             return String.format(
                 ">eval " +
                     "const pseudoWeather = battle.dex.conditions.get('%1$s'); " +
-                    "if (battle.field.pseudoWeather[pseudoWeather.id]) delete battle.field.pseudoWeather[pseudoWeather.id]; ",
+                    "if (pseudoWeather && battle.field.pseudoWeather[pseudoWeather.id]) delete battle.field.pseudoWeather[pseudoWeather.id]; ",
                 this.field
             );
         }
@@ -111,7 +111,7 @@ public class ShowdownEvents {
                 ">eval " +
                     "const condition = battle.dex.conditions.get('%1$s'); " +
                     "const side = battle.sides[%2$d]; " +
-                    "if (condition && side.sideConditions[condition.id]) delete side.sideConditions[condition.id]; ",
+                    "if (condition && side && side.sideConditions[condition.id]) delete side.sideConditions[condition.id]; ",
                 this.sideCondition, this.side - 1
             );
         }
@@ -194,7 +194,7 @@ public class ShowdownEvents {
 
     public record PlayerJoinShowdownEvent(String player) implements ShowdownEvent {
         public String build(PokemonBattle battle) {
-            return String.format(">eval battle.add('playerjoin', battle.sides[1].pokemon[0], '%1$s');", this.player);
+            return String.format(">eval const boss = battle.sides[1].pokemon[0]; if (boss) battle.add('playerjoin', boss, '%1$s');", this.player);
         }
     }
 
@@ -304,7 +304,7 @@ public class ShowdownEvents {
                 ">eval " +
                     "const pokemon = battle.sides[1].pokemon[0]; " +
                     "const pseudoWeather = battle.dex.conditions.get('%1$s'); " +
-                    "battle.field.pseudoWeather[pseudoWeather.id] = { " +
+                    "if (pokemon && pseudoWeather) battle.field.pseudoWeather[pseudoWeather.id] = { " +
                         "id: pseudoWeather.id, " +
                         "source: pokemon, " +
                         "sourceSlot: pokemon.getSlot(), " +
@@ -322,8 +322,8 @@ public class ShowdownEvents {
                 ">eval " +
                     "const condition = battle.dex.conditions.get('%1$s'); " +
                     "const side = battle.sides[%2$d]; " +
-                    "const pokemon = side.pokemon[0]; " +
-                    "if (condition && !side.sideConditions[condition.id]) { " +
+                    "const pokemon = side ? side.pokemon[0] : null; " +
+                    "if (condition && side && pokemon && !side.sideConditions[condition.id]) { " +
                         "side.sideConditions[condition.id] = { " +
                             "id: condition.id, " +
                             "target: side, " +
@@ -333,7 +333,7 @@ public class ShowdownEvents {
                         "}; " +
                         "battle.effectState.layers = 1; " +
                     "} " +
-                    "else if (condition && side.sideConditions[condition.id]) { " +
+                    "else if (condition && side && side.sideConditions[condition.id]) { " +
                         "if (condition.id === 'spikes' && battle.effectState.layers < 3) battle.effectState.layers++; " +
                         "if (condition.id === 'toxicspikes' && battle.effectState.layers < 2) battle.effectState.layers++; " +
                     "} ",
@@ -349,7 +349,7 @@ public class ShowdownEvents {
                     ">eval " +
                         "const status = battle.dex.conditions.get('%1$s'); " +
                         "for (let p of battle.sides[%2$d].pokemon) { " +
-                            "if (!status || status.id === 'typechange') continue; " +
+                            "if (!p || !status || status.id === 'typechange') continue; " +
                             "if (p.volatiles[status.id]) { " +
                                 "if (status.onRestart) battle.singleEvent('Restart', status, p.volatiles[status.id], p, null, null); " +
                                 "continue;" +
@@ -364,7 +364,7 @@ public class ShowdownEvents {
                     ">eval " +
                         "const status = battle.dex.conditions.get('%1$s'); " +
                         "for (let p of battle.sides[%2$d].pokemon) { " +
-                            "if (status && p.status !== 'shield') {" +
+                            "if (p && status && p.status !== 'shield') {" +
                                 "if (p.status === status.id) continue; " +
                                 "battle.runEvent('SetStatus', p, null, null, status); " +
                                 "p.status = status.id; " +
@@ -391,13 +391,15 @@ public class ShowdownEvents {
                     ">eval " +
                         "const pokemon = battle.sides[1].pokemon[0]; " +
                         "const terrain = battle.dex.conditions.get('%1$s'); " +
-                        "battle.field.terrain = terrain.id; " +
-                        "battle.field.terrainState = { " +
-                            "id: terrain.id, " +
-                            "source: pokemon, " +
-                            "sourceSlot: pokemon.getSlot(), " +
-                            "duration: terrain.duration " +
-                        "};",
+                        "if (pokemon && terrain) { " +
+                            "battle.field.terrain = terrain.id; " +
+                            "battle.field.terrainState = { " +
+                                "id: terrain.id, " +
+                                "source: pokemon, " +
+                                "sourceSlot: pokemon.getSlot(), " +
+                                "duration: terrain.duration " +
+                            "}; " +
+                        "}",
                     this.terrain
                 );
             }
@@ -405,7 +407,7 @@ public class ShowdownEvents {
                 return String.format(
                     ">eval " +
                         "const pokemon = battle.sides[1].pokemon[0]; " +
-                        "battle.field.setTerrain('%s', pokemon); ",
+                        "if (pokemon) battle.field.setTerrain('%s', pokemon); ",
                     this.terrain
                 );
             }
@@ -418,9 +420,11 @@ public class ShowdownEvents {
                 return String.format(
                     ">eval " +
                         "const weather = battle.dex.conditions.get('%1$s'); " +
-                        "battle.field.weather = weather.id; " +
-                        "battle.field.weatherState = { id: weather.id };" +
-                        "if (weather.duration) battle.field.weatherState.duration = weather.duration;",
+                        "if (weather) { " +
+                            "battle.field.weather = weather.id; " +
+                            "battle.field.weatherState = { id: weather.id };" +
+                            "if (weather.duration) battle.field.weatherState.duration = weather.duration; " +
+                        "}",
                     this.weather
                 );
             }
@@ -428,7 +432,7 @@ public class ShowdownEvents {
                 return String.format(
                     ">eval " +
                         "const pokemon = battle.sides[1].pokemon[0]; " +
-                        "battle.field.setWeather('%s', pokemon);",
+                        "if (pokemon) battle.field.setWeather('%s', pokemon);",
                     this.weather
                 );
             }
@@ -686,8 +690,10 @@ public class ShowdownEvents {
             return String.format(
                 ">eval " +
                     "let p = battle.sides[1].pokemon[0]; " +
-                    "p.side.lastSelectedMove = battle.toID('%1$s'); " +
-                    "battle.actions.runMove('%1$s', p, %2$d, null, null, true);",
+                    "if (p) { " +
+                        "p.side.lastSelectedMove = battle.toID('%1$s'); " +
+                        "battle.actions.runMove('%1$s', p, %2$d, null, null, true); " +
+                    "}",
                 this.move, this.target
             );
         }
