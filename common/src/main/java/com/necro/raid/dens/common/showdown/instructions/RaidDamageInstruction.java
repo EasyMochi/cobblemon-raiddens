@@ -15,6 +15,7 @@ import com.cobblemon.mod.common.battles.ShowdownInterpreter;
 import com.cobblemon.mod.common.battles.dispatch.*;
 import com.cobblemon.mod.common.battles.interpreter.instructions.MoveInstruction;
 import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
+import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.net.messages.client.battle.BattleHealthChangePacket;
 import com.cobblemon.mod.common.pokemon.status.PersistentStatusContainer;
 import com.cobblemon.mod.common.pokemon.status.statuses.persistent.PoisonStatus;
