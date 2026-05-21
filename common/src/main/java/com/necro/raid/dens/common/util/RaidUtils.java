@@ -121,14 +121,21 @@ public class RaidUtils {
         }
         else if (instance.getRaidState() != RaidState.NOT_STARTED && BattleRegistry.getBattleByParticipatingPlayer((ServerPlayer) player) != null) {
             instance.removePlayer((ServerPlayer) player);
+            RaidJoinHelper.removeParticipant(player);
             return;
         }
 
         int players = level.getEntitiesOfClass(Player.class, region.bound(), p -> RaidJoinHelper.isParticipating(p, false)).size();
-        if (players > (isRaidDimension(player.level()) ? 1 : 0)) return;
+        if (players > (isRaidDimension(player.level()) ? 1 : 0)) {
+            RaidJoinHelper.removeParticipant(player);
+            return;
+        }
 
         int items = level.getEntitiesOfClass(ItemEntity.class, region.bound(), item -> item.getOwner() != null).size();
-        if (items > 0 && isRaidDimension(player.level())) return;
+        if (items > 0 && isRaidDimension(player.level())) {
+            RaidJoinHelper.removeParticipant(player);
+            return;
+        }
 
         instance.removePlayer((ServerPlayer) player);
         instance.closeRaid(player.getServer());
