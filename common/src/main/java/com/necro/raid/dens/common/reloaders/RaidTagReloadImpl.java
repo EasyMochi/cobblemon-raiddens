@@ -85,19 +85,23 @@ public class RaidTagReloadImpl extends AbstractReloadImpl {
     }
 
     private Set<ResourceLocation> resolveTag(ResourceLocation id, Map<ResourceLocation, TagFile> all,
-                                             Map<ResourceLocation, Set<ResourceLocation>> cache, Set<ResourceLocation> visited) {
+                                             Map<ResourceLocation, Set<ResourceLocation>> cache, Set<ResourceLocation> visiting) {
         if (cache.containsKey(id)) return cache.get(id);
-        if (!visited.add(id)) throw new IllegalStateException("Circular tag reference in " + id);
+        if (!visiting.add(id)) throw new IllegalStateException("Circular tag reference in " + id);
 
         TagFile file = all.get(id);
-        if (file == null) return Set.of();
+        if (file == null) {
+            visiting.remove(id);
+            return Set.of();
+        }
 
         Set<ResourceLocation> elements = new HashSet<>();
         for (TagEntry tag : file.entries()) {
-            if (((TagEntryMixin) tag).isTag()) elements.addAll(this.resolveTag(((TagEntryMixin) tag).getId(), all, cache, visited));
+            if (((TagEntryMixin) tag).isTag()) elements.addAll(this.resolveTag(((TagEntryMixin) tag).getId(), all, cache, visiting));
             else elements.add(((TagEntryMixin) tag).getId());
         }
 
+        visiting.remove(id);
         cache.put(id, elements);
         return elements;
     }
