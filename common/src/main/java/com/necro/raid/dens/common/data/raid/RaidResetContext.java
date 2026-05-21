@@ -6,7 +6,7 @@ import net.minecraft.nbt.CompoundTag;
 
 public record RaidResetContext(long gameTime, long systemTime, long globalCycle) {
     public RaidResetContext(long gameTime) {
-        this(gameTime, RaidHelper.getGlobalCycle().globalCycle);
+        this(gameTime, RaidHelper.getGlobalCycle().globalCycle());
     }
 
     public RaidResetContext(long gameTime, long globalCycle) {
@@ -24,8 +24,8 @@ public record RaidResetContext(long gameTime, long systemTime, long globalCycle)
         return switch (CobblemonRaidDens.CONFIG.reset_mode) {
             case GAME_TIME -> Math.max(0L, CobblemonRaidDens.CONFIG.reset_time * 20L - (gameTime - this.gameTime));
             case SYSTEM_TIME -> Math.max(0L, CobblemonRaidDens.CONFIG.reset_time * 1000L - (System.currentTimeMillis() - this.systemTime)) / 50L;
-            case GLOBAL_GAME_TIME -> Math.max(0L, CobblemonRaidDens.CONFIG.reset_time * 20L - (gameTime - RaidHelper.getGlobalCycle().gameTime));
-            case GLOBAL_SYSTEM_TIME -> Math.max(0L, CobblemonRaidDens.CONFIG.reset_time * 1000L - (System.currentTimeMillis() - RaidHelper.getGlobalCycle().systemTime)) / 50L;
+            case GLOBAL_GAME_TIME -> Math.max(0L, CobblemonRaidDens.CONFIG.reset_time * 20L - (gameTime - RaidHelper.getGlobalCycle().gameTime()));
+            case GLOBAL_SYSTEM_TIME -> Math.max(0L, CobblemonRaidDens.CONFIG.reset_time * 1000L - (System.currentTimeMillis() - RaidHelper.getGlobalCycle().systemTime())) / 50L;
         };
     }
 
@@ -33,14 +33,19 @@ public record RaidResetContext(long gameTime, long systemTime, long globalCycle)
         return switch (CobblemonRaidDens.CONFIG.reset_mode) {
             case GAME_TIME -> gameTime - this.gameTime > CobblemonRaidDens.CONFIG.reset_time * 20L;
             case SYSTEM_TIME -> System.currentTimeMillis() - this.systemTime > CobblemonRaidDens.CONFIG.reset_time * 1000L;
-            default -> RaidHelper.getGlobalCycle().globalCycle > this.globalCycle;
+            default -> RaidHelper.getGlobalCycle().globalCycle() > this.globalCycle;
         };
     }
 
     public static RaidResetContext load(CompoundTag compoundTag) {
-        long gameTime = compoundTag.getLong("game_time");
-        long systemTime = compoundTag.getLong("system_time");
-        long globalCycle = compoundTag.getLong("global_cycle");
+        return load(compoundTag, 0L);
+    }
+
+    public static RaidResetContext load(CompoundTag compoundTag, long fallbackGameTime) {
+        if (compoundTag == null || compoundTag.isEmpty()) return new RaidResetContext(fallbackGameTime);
+        long gameTime = compoundTag.contains("game_time") ? compoundTag.getLong("game_time") : fallbackGameTime;
+        long systemTime = compoundTag.contains("system_time") ? compoundTag.getLong("system_time") : System.currentTimeMillis();
+        long globalCycle = compoundTag.contains("global_cycle") ? compoundTag.getLong("global_cycle") : RaidHelper.getGlobalCycle().globalCycle();
         return new RaidResetContext(gameTime, systemTime, globalCycle);
     }
 }
