@@ -195,8 +195,9 @@ public class RaidInstance {
         ((IRaidBattle) battle).crd_setRaidBattle(this);
         this.sendHealthPacket(battle);
 
-        if (!this.battles.isEmpty() && this.raidBoss.getMultiplayerHealthMulti() > 1.0F) {
-            this.playerJoin(battle.getPlayers().getFirst().getName().getString());
+        List<ServerPlayer> players = battle.getPlayers();
+        if (!this.battles.isEmpty() && this.raidBoss.getMultiplayerHealthMulti() > 1.0F && !players.isEmpty()) {
+            this.playerJoin(players.getFirst().getName().getString());
         }
 
         this.battles.add(battle);
@@ -209,13 +210,18 @@ public class RaidInstance {
         if (this.raidState == RaidState.NOT_STARTED) this.raidState = RaidState.IN_PROGRESS;
 
         List<Integer> entityIds = this.getEntityIds(this.battles);
-        this.activePlayers.forEach(player -> RaidDenNetworkMessages.RAID_HEALTH_BAR.accept(player, entityIds, true));
+        if (!entityIds.isEmpty()) {
+            this.activePlayers.forEach(player -> RaidDenNetworkMessages.RAID_HEALTH_BAR.accept(player, entityIds, true));
+        }
     }
 
     private List<Integer> getEntityIds(List<PokemonBattle> battles) {
         List<Integer> entityIds = new ArrayList<>();
         for (PokemonBattle battle : battles) {
-            BattlePokemon battlePokemon = battle.getSide1().getActivePokemon().getFirst().getBattlePokemon();
+            List<ActiveBattlePokemon> activePokemon = battle.getSide1().getActivePokemon();
+            if (activePokemon.isEmpty()) continue;
+
+            BattlePokemon battlePokemon = activePokemon.getFirst().getBattlePokemon();
             if (battlePokemon == null) continue;
             PokemonEntity leadingPokemon = battlePokemon.getEntity();
             if (leadingPokemon == null) continue;
@@ -304,19 +310,33 @@ public class RaidInstance {
         List<Integer> entityIds = new ArrayList<>();
         List<Float> health = new ArrayList<>();
         for (PokemonBattle battle : this.battles) {
-            BattlePokemon battlePokemon = battle.getSide1().getActivePokemon().getFirst().getBattlePokemon();
+            List<ActiveBattlePokemon> activePokemon = battle.getSide1().getActivePokemon();
+            if (activePokemon.isEmpty()) continue;
+
+            BattlePokemon battlePokemon = activePokemon.getFirst().getBattlePokemon();
             if (battlePokemon == null || battlePokemon.getEntity() == null) continue;
             entityIds.add(battlePokemon.getEntity().getId());
             float currentHealth = battlePokemon.getEffectedPokemon().getCurrentHealth();
             float maxHealth = battlePokemon.getEffectedPokemon().getMaxHealth();
+            if (maxHealth <= 0F) continue;
             health.add(currentHealth / maxHealth);
         }
-        this.activePlayers.forEach(player -> RaidDenNetworkMessages.RAID_HEALTH_UPDATE.accept(player, entityIds, health));
+        if (!entityIds.isEmpty()) {
+            this.activePlayers.forEach(player -> RaidDenNetworkMessages.RAID_HEALTH_UPDATE.accept(player, entityIds, health));
+        }
     }
 
     private void sendHealthPacket(PokemonBattle battle) {
-        String pnx = battle.getSide2().getActivePokemon().getFirst().getPNX();
-        BattleActor actor = battle.getActorAndActiveSlotFromPNX(pnx).getFirst();
+        List<ActiveBattlePokemon> activePokemon = battle.getSide2().getActivePokemon();
+        if (activePokemon.isEmpty()) return;
+
+        String pnx = activePokemon.getFirst().getPNX();
+        if (pnx == null) return;
+
+        var actorSlot = battle.getActorAndActiveSlotFromPNX(pnx);
+        if (actorSlot == null || actorSlot.getFirst() == null) return;
+        BattleActor actor = actorSlot.getFirst();
+
         battle.sendSidedUpdate(
                 actor,
                 new BattleHealthChangePacket(pnx, this.getCurrentHealth(), null),
@@ -395,7 +415,9 @@ public class RaidInstance {
         this.timerEvent.removeAllPlayers();
 
         List<Integer> entityIds = this.getEntityIds(this.battles);
-        this.activePlayers.forEach(player -> RaidDenNetworkMessages.RAID_HEALTH_BAR.accept(player, entityIds, false));
+        if (!entityIds.isEmpty()) {
+            this.activePlayers.forEach(player -> RaidDenNetworkMessages.RAID_HEALTH_BAR.accept(player, entityIds, false));
+        }
 
         if (raidSuccess) this.bossEntity.setHealth(0F);
         if (this.raidBoss == null) return;
@@ -544,8 +566,12 @@ public class RaidInstance {
     }
 
     public void cheer(PokemonBattle battle, BagItem bagItem, String origin, boolean skipEnemyAction) {
-        BattleActor side1 = battle.getSide1().getActors()[0];
-        BattleActor side2 = battle.getSide2().getActors()[0];
+        BattleActor[] side1Actors = battle.getSide1().getActors();
+        BattleActor[] side2Actors = battle.getSide2().getActors();
+        if (side1Actors.length == 0 || side2Actors.length == 0) return;
+
+        BattleActor side1 = side1Actors[0];
+        BattleActor side2 = side2Actors[0];
         List<ActiveBattlePokemon> target = side1.getActivePokemon();
         if (side1.getRequest() == null || side2.getRequest() == null || target.isEmpty() || target.getFirst().getBattlePokemon() == null) return;
         if (bagItem instanceof CheerBagItem(CheerBagItem.CheerType cheerType) && cheerType == CheerBagItem.CheerType.HEAL && target.getFirst().getBattlePokemon().getEntity() instanceof PokemonEntity entity) {
