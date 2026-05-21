@@ -8,6 +8,7 @@ import com.cobblemon.mod.common.api.events.entity.SpawnEvent;
 import com.cobblemon.mod.common.api.events.pokemon.PokemonSentEvent;
 import com.cobblemon.mod.common.api.events.pokemon.ShinyChanceCalculationEvent;
 import com.cobblemon.mod.common.api.pokemon.status.Statuses;
+import com.cobblemon.mod.common.battles.ActiveBattlePokemon;
 import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.necro.raid.dens.common.advancements.RaidDenCriteriaTriggers;
@@ -106,7 +107,11 @@ public class CobblemonRaidDens {
             return Unit.INSTANCE;
         });
         CobblemonEvents.BATTLE_VICTORY.subscribe(Priority.NORMAL, event -> {
-            BattlePokemon battlePokemon = event.getWinners().getFirst().getActivePokemon().getFirst().getBattlePokemon();
+            if (event.getWinners().isEmpty()) return Unit.INSTANCE;
+            List<ActiveBattlePokemon> activePokemon = event.getWinners().getFirst().getActivePokemon();
+            if (activePokemon.isEmpty()) return Unit.INSTANCE;
+
+            BattlePokemon battlePokemon = activePokemon.getFirst().getBattlePokemon();
             if (battlePokemon == null || battlePokemon.getEntity() == null) return Unit.INSTANCE;
             else if (!((IRaidAccessor) battlePokemon.getEntity()).crd_isRaidBoss()) return Unit.INSTANCE;
             raidFailEvent(null, event.getBattle(), false);
@@ -131,13 +136,10 @@ public class CobblemonRaidDens {
     }
 
     private static void raidFailEvent(@Nullable ServerPlayer player, PokemonBattle battle, boolean ignoreLives) {
-        try {
-            RaidInstance raid = ((IRaidBattle) battle).crd_getRaidBattle();
-            if (raid == null || raid.isFinished()) return;
-            if (player == null) raid.removePlayer(battle, ignoreLives);
-            else raid.removePlayer(player, battle, ignoreLives);
-        }
-        catch (NullPointerException ignored) {}
+        RaidInstance raid = ((IRaidBattle) battle).crd_getRaidBattle();
+        if (raid == null || raid.isFinished()) return;
+        if (player == null) raid.removePlayer(battle, ignoreLives);
+        else raid.removePlayer(player, battle, ignoreLives);
     }
 
     private static void cancelLootDrops(LootDroppedEvent event) {
@@ -167,6 +169,7 @@ public class CobblemonRaidDens {
         PokemonBattle battle = pokemonEntity.getBattle();
         if (battle == null || !((IRaidBattle) battle).crd_isRaidBattle()) return;
         RaidInstance raid = ((IRaidBattle) battle).crd_getRaidBattle();
+        if (raid == null) return;
         raid.getPlayers().forEach(player -> RaidDenNetworkMessages.RAID_HEALTH_BAR.accept(player, List.of(pokemonEntity.getId()), true));
     }
 }
