@@ -85,6 +85,7 @@ public class RaidJoinHelper {
     public static void onPlayerDisconnect(Player player) {
         refundItem(player);
         RaidUtils.leaveRaid(player);
+        removeParticipant(player);
     }
 
     private static void refundItem(Player player) {
