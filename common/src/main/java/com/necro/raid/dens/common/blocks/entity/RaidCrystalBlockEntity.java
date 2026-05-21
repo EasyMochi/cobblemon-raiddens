@@ -54,9 +54,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public abstract class RaidCrystalBlockEntity extends BlockEntity implements GeoBlockEntity {
+    private static final int IDLE_CHECK_INTERVAL = 20;
+
     private int clears;
     private int inactiveTicks;
     private int soundTicks;
+    private int idleCheckTicks;
+    private boolean cachedIdle;
 
     private int beamHeight;
     private int lastCheckedY;
@@ -76,6 +80,8 @@ public abstract class RaidCrystalBlockEntity extends BlockEntity implements GeoB
     public RaidCrystalBlockEntity(BlockEntityType<? extends RaidCrystalBlockEntity> blockEntityType, BlockPos blockPos, BlockState blockState) {
         super(blockEntityType, blockPos, blockState);
         this.soundTicks = 0;
+        this.idleCheckTicks = 0;
+        this.cachedIdle = true;
         this.beamHeight = 0;
         this.lastCheckedY = -1;
         this.checkingHeight = 0;
@@ -89,7 +95,7 @@ public abstract class RaidCrystalBlockEntity extends BlockEntity implements GeoB
             return;
         }
 
-        boolean isIdle = this.isIdle();
+        boolean isIdle = this.isIdleForTick();
         if (RaidHelper.hasRaidState(this.getUuid()) && isIdle) this.closeRaid();
 
         if (this.canGenerateBoss(blockState) && (this.raidBoss == null || !RaidRegistry.exists(this.raidBoss))) {
@@ -115,6 +121,17 @@ public abstract class RaidCrystalBlockEntity extends BlockEntity implements GeoB
         else if (this.lastReset.shouldReset(gameTime)) {
             this.generateRaidBoss(level, blockPos, blockState);
         }
+    }
+
+    private boolean isIdleForTick() {
+        if (this.idleCheckTicks > 0) {
+            this.idleCheckTicks--;
+            return this.cachedIdle;
+        }
+
+        this.idleCheckTicks = IDLE_CHECK_INTERVAL;
+        this.cachedIdle = this.isIdle();
+        return this.cachedIdle;
     }
 
     private void clientTick(BlockState blockState) {
@@ -342,6 +359,7 @@ public abstract class RaidCrystalBlockEntity extends BlockEntity implements GeoB
         RaidHelper.resetClearedRaids(this.getUuid());
         this.resetClears();
         this.inactiveTicks = 0;
+        this.idleCheckTicks = 0;
         this.lastReset = new RaidResetContext(gameTime);
         this.raidBoss = raidBoss;
         this.aspects = null;
