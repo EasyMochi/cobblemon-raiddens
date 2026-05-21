@@ -423,7 +423,9 @@ public abstract class RaidCrystalBlockEntity extends BlockEntity implements GeoB
     @Override
     protected void loadAdditional(CompoundTag compoundTag, HolderLookup.@NotNull Provider provider) {
         this.clears = compoundTag.getInt("raid_cleared");
-        this.lastReset = RaidResetContext.load(compoundTag.getCompound("reset_context"));
+        this.lastReset = compoundTag.contains("reset_context")
+            ? RaidResetContext.load(compoundTag.getCompound("reset_context"))
+            : new RaidResetContext(compoundTag.getLong("last_reset"));
 
         if (compoundTag.contains("uuid")) this.uuid = UUID.fromString(compoundTag.getString("uuid"));
         else this.uuid = UUID.randomUUID();
@@ -442,6 +444,7 @@ public abstract class RaidCrystalBlockEntity extends BlockEntity implements GeoB
     @Override
     protected void saveAdditional(@NotNull CompoundTag compoundTag, HolderLookup.@NotNull Provider provider) {
         compoundTag.putInt("raid_cleared", this.clears);
+        if (this.lastReset == null) this.lastReset = new RaidResetContext(this.getLevel() == null ? 0L : this.getLevel().getGameTime());
         compoundTag.put("reset_context", this.lastReset.save(new CompoundTag()));
 
         if (this.uuid != null) compoundTag.putString("uuid", this.uuid.toString());
