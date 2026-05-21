@@ -170,12 +170,17 @@ public class RaidHelper extends SavedData {
             String uuid = entry.getString("uuid");
             if (uuid.isEmpty()) continue;
 
-            Set<UUID> players = new HashSet<>();
-            ListTag uuidList = entry.getList("players", Tag.TAG_INT_ARRAY);
-            for (Tag uuidTag : uuidList) {
-                players.add(NbtUtils.loadUUID(uuidTag));
+            try {
+                Set<UUID> players = new HashSet<>();
+                ListTag uuidList = entry.getList("players", Tag.TAG_INT_ARRAY);
+                for (Tag uuidTag : uuidList) {
+                    players.add(NbtUtils.loadUUID(uuidTag));
+                }
+                data.CLEARED_RAIDS.put(UUID.fromString(uuid), players);
             }
-            data.CLEARED_RAIDS.put(UUID.fromString(uuid), players);
+            catch (Exception e) {
+                CobblemonRaidDens.LOGGER.warn("Ignoring malformed cleared raid entry for raid '{}'", uuid, e);
+            }
         }
 
         ListTag raidCloseQueue = compoundTag.getList("raid_close_queue", Tag.TAG_COMPOUND);
@@ -183,9 +188,14 @@ public class RaidHelper extends SavedData {
             CompoundTag entry = (CompoundTag) t;
             String uuid = entry.getString("uuid");
             if (uuid.isEmpty()) continue;
-            RaidState state = RaidState.fromString(entry.getString("state"));
 
-            data.RAID_CLOSE_QUEUE.put(UUID.fromString(uuid), state);
+            try {
+                RaidState state = RaidState.fromString(entry.getString("state"));
+                if (state != null) data.RAID_CLOSE_QUEUE.put(UUID.fromString(uuid), state);
+            }
+            catch (Exception e) {
+                CobblemonRaidDens.LOGGER.warn("Ignoring malformed raid close queue entry for raid '{}'", uuid, e);
+            }
         }
 
         REWARD_QUEUE.clear();
