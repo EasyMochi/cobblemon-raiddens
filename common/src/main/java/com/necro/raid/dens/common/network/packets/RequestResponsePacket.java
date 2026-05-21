@@ -54,20 +54,35 @@ public record RequestResponsePacket(boolean accept, String player) implements Cu
 
     private void acceptRequest(ServerPlayer host, Player player, RaidCrystalBlockEntity blockEntity) {
         if (blockEntity.isFull()) {
+            RaidJoinHelper.removeFromQueue(player, true);
+            this.removeRequest(host, player);
             host.displayClientMessage(ComponentUtils.getSystemMessage("message.cobblemonraiddens.raid.lobby_is_full"), true);
+            player.displayClientMessage(ComponentUtils.getSystemMessage("message.cobblemonraiddens.raid.lobby_is_full"), true);
             return;
         }
 
         boolean success = RaidEvents.RAID_JOIN.postWithResult(new RaidJoinEvent((ServerPlayer) player, false, blockEntity.getRaidBoss()));
-        if (!success) return;
+        if (!success) {
+            RaidJoinHelper.removeFromQueue(player, true);
+            this.removeRequest(host, player);
+            return;
+        }
 
         RaidRegion region = RaidRegionHelper.getRegion(blockEntity.getUuid());
         RaidInstance raid = RaidHelper.ACTIVE_RAIDS.get(blockEntity.getUuid());
 
         if (region != null && raid != null && RaidJoinHelper.isInQueue(player) && !RaidJoinHelper.isParticipating(player, false)) {
-            assert player.getServer() != null;
-            RaidJoinHelper.removeFromQueue(player, false);
-            if (!RaidJoinHelper.addParticipant(player, blockEntity.getUuid(), false, true)) return;
+            if (player.getServer() == null) {
+                RaidJoinHelper.removeFromQueue(player, true);
+                this.removeRequest(host, player);
+                return;
+            }
+
+            if (!RaidJoinHelper.addQueuedParticipant(player, blockEntity.getUuid(), false, true)) {
+                this.removeRequest(host, player);
+                return;
+            }
+            this.removeRequest(host, player);
 
             raid.addPlayer((ServerPlayer) player);
             RaidUtils.teleportPlayerToRaid((ServerPlayer) player, player.getServer(), region);
@@ -75,8 +90,7 @@ public record RequestResponsePacket(boolean accept, String player) implements Cu
         }
         else {
             RaidJoinHelper.removeFromQueue(player, true);
-            RequestHandler handler = RaidHelper.REQUEST_QUEUE.get(host.getUUID());
-            if (handler != null) handler.removePlayer(player);
+            this.removeRequest(host, player);
             host.displayClientMessage(ComponentUtils.getSystemMessage("message.cobblemonraiddens.raid.request_time_out"), true);
         }
     }
@@ -84,15 +98,20 @@ public record RequestResponsePacket(boolean accept, String player) implements Cu
     private void denyRequest(ServerPlayer host, Player player) {
         if (RaidJoinHelper.isInQueue(player)) {
             RaidJoinHelper.removeFromQueue(player, true);
-            RequestHandler handler = RaidHelper.REQUEST_QUEUE.get(host.getUUID());
-            if (handler != null) handler.removePlayer(player);
+            this.removeRequest(host, player);
             player.displayClientMessage(ComponentUtils.getSystemMessage(
                 Component.translatable("message.cobblemonraiddens.raid.rejected_request", host.getName())), true
             );
             host.displayClientMessage(ComponentUtils.getSystemMessage("message.cobblemonraiddens.raid.confirm_deny_request"), true);
         }
         else {
+            this.removeRequest(host, player);
             host.displayClientMessage(ComponentUtils.getSystemMessage("message.cobblemonraiddens.raid.request_time_out"), true);
         }
+    }
+
+    private void removeRequest(ServerPlayer host, Player player) {
+        RequestHandler handler = RaidHelper.REQUEST_QUEUE.get(host.getUUID());
+        if (handler != null) handler.removePlayer(player);
     }
 }
