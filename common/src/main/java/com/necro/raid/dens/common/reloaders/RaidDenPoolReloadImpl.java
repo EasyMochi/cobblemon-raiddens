@@ -15,6 +15,7 @@ public class RaidDenPoolReloadImpl extends AbstractReloadImpl {
     @Override
     protected void preLoad() {
         CobblemonRaidDens.LOGGER.info("Registering raid den pools");
+        RaidDenRegistry.clearDenPools();
     }
 
     @Override
