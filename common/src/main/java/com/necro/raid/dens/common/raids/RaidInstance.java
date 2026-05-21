@@ -77,6 +77,8 @@ public class RaidInstance {
 
     private final Map<UUID, RaidPlayer> playerMap;
     private final List<DelayedRunnable> runQueue;
+    private final List<DelayedRunnable> pendingRunQueue;
+    private boolean tickingRunQueue;
 
     private RaidState raidState;
     private final RaidBattleState battleState;
@@ -91,12 +93,12 @@ public class RaidInstance {
         this.raid = ((IRaidAccessor) entity).crd_getRaidId();
         this.raidBoss = ((IRaidAccessor) entity).crd_getRaidBoss();
         this.bossEvent = new ServerBossEvent(
-            this.bossBarText(entity, raidBoss),
-            BossEvent.BossBarColor.WHITE, BossEvent.BossBarOverlay.NOTCHED_10
+                this.bossBarText(entity, raidBoss),
+                BossEvent.BossBarColor.WHITE, BossEvent.BossBarOverlay.NOTCHED_10
         );
         this.timerEvent = new ServerBossEvent(
-            Component.empty(),
-            BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS
+                Component.empty(),
+                BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS
         );
         this.timerEvent.setVisible(false);
 
@@ -116,6 +118,8 @@ public class RaidInstance {
 
         this.playerMap = new HashMap<>();
         this.runQueue = new ArrayList<>();
+        this.pendingRunQueue = new ArrayList<>();
+        this.tickingRunQueue = false;
         this.schedule(this::checkFlee, 20, true);
         this.schedule(this::updateHealthBars, 80, true);
 
@@ -130,9 +134,9 @@ public class RaidInstance {
             List<AbstractEvent> functions;
             try {
                 functions = scripts.stream()
-                    .map(CustomRaidRegistries.SCRIPT_REGISTRY::decode)
-                    .filter(Objects::nonNull)
-                    .toList();
+                        .map(CustomRaidRegistries.SCRIPT_REGISTRY::decode)
+                        .filter(Objects::nonNull)
+                        .toList();
             }
             catch (Exception e) {
                 CobblemonRaidDens.LOGGER.error("Failed to parse script {} for raid boss {}: ", scripts, this.raidBoss.getId(), e);
@@ -314,10 +318,10 @@ public class RaidInstance {
         String pnx = battle.getSide2().getActivePokemon().getFirst().getPNX();
         BattleActor actor = battle.getActorAndActiveSlotFromPNX(pnx).getFirst();
         battle.sendSidedUpdate(
-            actor,
-            new BattleHealthChangePacket(pnx, this.getCurrentHealth(), null),
-            new BattleHealthChangePacket(pnx, this.getCurrentHealth() / this.getMaxHealth(), null),
-            false
+                actor,
+                new BattleHealthChangePacket(pnx, this.getCurrentHealth(), null),
+                new BattleHealthChangePacket(pnx, this.getCurrentHealth() / this.getMaxHealth(), null),
+                false
         );
     }
 
@@ -355,8 +359,24 @@ public class RaidInstance {
 
     public void tick() {
         if (this.isFinished()) return;
-        try { this.runQueue.removeIf(DelayedRunnable::tick); }
-        catch (ConcurrentModificationException ignored) {}
+
+        this.tickingRunQueue = true;
+        try {
+            Iterator<DelayedRunnable> iterator = this.runQueue.iterator();
+            while (iterator.hasNext()) {
+                if (iterator.next().tick()) iterator.remove();
+                if (this.isFinished()) break;
+            }
+        }
+        finally {
+            this.tickingRunQueue = false;
+        }
+
+        if (!this.pendingRunQueue.isEmpty()) {
+            this.runQueue.addAll(this.pendingRunQueue);
+            this.pendingRunQueue.clear();
+        }
+
         this.actuallyAddTriggers();
     }
 
@@ -437,7 +457,7 @@ public class RaidInstance {
             RaidEvents.RAID_END.emit(new RaidEndEvent(player, this.raidBoss, reward, event.catchRate(), true));
         });
         failed.forEach(player ->
-            RaidEvents.RAID_END.emit(new RaidEndEvent(player, this.raidBoss, null, 0F, true))
+                RaidEvents.RAID_END.emit(new RaidEndEvent(player, this.raidBoss, null, 0F, true))
         );
         noItems.forEach(player -> player.displayClientMessage(Component.translatable("message.cobblemonraiddens.raid.not_enough_damage"), true));
     }
@@ -615,7 +635,7 @@ public class RaidInstance {
 
     private Component bossBarText(PokemonEntity entity, RaidBoss raidBoss) {
         if (raidBoss.getBossBarText() != null) return raidBoss.getBossBarText();
-    
+
         MutableComponent entityName = (MutableComponent) entity.getName();
         return ComponentUtils.getRaidBossDefault(entityName);
     }
@@ -626,7 +646,7 @@ public class RaidInstance {
         this.time = this.maxTime;
 
         this.timerEvent.setVisible(true);
-        this.runQueue.add(new TimerRunnable());
+        this.schedule(new TimerRunnable());
     }
 
     public void reduceTimer(float ratio) {
@@ -649,8 +669,13 @@ public class RaidInstance {
     }
 
     public void schedule(Runnable runnable, int delay, boolean repeat) {
+        this.schedule(new DelayedRunnable(runnable, delay, repeat));
+    }
+
+    private void schedule(DelayedRunnable runnable) {
         if (this.isFinished()) return;
-        this.runQueue.add(new DelayedRunnable(runnable, delay, repeat));
+        if (this.tickingRunQueue) this.pendingRunQueue.add(runnable);
+        else this.runQueue.add(runnable);
     }
 
     public void addTrigger(RaidTrigger<?> trigger) {
@@ -662,7 +687,7 @@ public class RaidInstance {
             if (trigger.type() == RaidTriggerType.TIMER && trigger instanceof TimerTrigger timerTrigger) {
                 this.schedule(() -> timerTrigger.trigger(this, null), timerTrigger.after() * 20, timerTrigger.repeat());
             }
-            else this.triggers.get(trigger.type()).add(trigger);
+            else this.getTriggers(trigger.type()).add(trigger);
         });
         this.triggerAddQueue.clear();
     }
