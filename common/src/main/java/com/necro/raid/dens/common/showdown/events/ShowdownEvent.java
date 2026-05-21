@@ -2,6 +2,7 @@ package com.necro.raid.dens.common.showdown.events;
 
 import com.cobblemon.mod.common.api.battles.model.PokemonBattle;
 import com.cobblemon.mod.common.battles.runner.ShowdownService;
+import com.necro.raid.dens.common.CobblemonRaidDens;
 
 public interface ShowdownEvent extends AbstractEvent {
     @Override
@@ -13,8 +14,14 @@ public interface ShowdownEvent extends AbstractEvent {
     String build(PokemonBattle battle);
 
     default void send(PokemonBattle battle) {
-        String[] message = {this.build(battle)};
-        try { ShowdownService.Companion.getService().send(battle.getBattleId(), message); }
-        catch (Exception ignored) {}
+        String message = this.build(battle);
+        if (message == null || message.isBlank()) return;
+
+        try {
+            ShowdownService.Companion.getService().send(battle.getBattleId(), new String[]{message});
+        }
+        catch (Exception e) {
+            CobblemonRaidDens.LOGGER.warn("Failed to send Showdown event {} for battle {}", this.getClass().getSimpleName(), battle.getBattleId(), e);
+        }
     }
 }
