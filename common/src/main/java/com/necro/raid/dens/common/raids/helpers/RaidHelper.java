@@ -113,16 +113,18 @@ public class RaidHelper extends SavedData {
     }
 
     public static void commonTick(MinecraftServer server) {
-        switch (CobblemonRaidDens.CONFIG.reset_mode) {
-            case GLOBAL_GAME_TIME -> {
-                long current = server.overworld().getGameTime();
-                if (current - INSTANCE.GLOBAL_RESET.gameTime() > CobblemonRaidDens.CONFIG.reset_time * 20L) setGlobalCycle(current);
+        if (CobblemonRaidDens.CONFIG.reset_time > 0) {
+            long gameTime = server.overworld().getGameTime();
+            switch (CobblemonRaidDens.CONFIG.reset_mode) {
+                case GLOBAL_GAME_TIME -> {
+                    if (gameTime - INSTANCE.GLOBAL_RESET.gameTime() > CobblemonRaidDens.CONFIG.reset_time * 20L) setGlobalCycle(gameTime);
+                }
+                case GLOBAL_SYSTEM_TIME -> {
+                    long systemTime = System.currentTimeMillis();
+                    if (systemTime - INSTANCE.GLOBAL_RESET.systemTime() > CobblemonRaidDens.CONFIG.reset_time * 1000L) setGlobalCycle(gameTime);
+                }
+                default -> {}
             }
-            case GLOBAL_SYSTEM_TIME -> {
-                long current = System.currentTimeMillis();
-                if (current - INSTANCE.GLOBAL_RESET.systemTime() > CobblemonRaidDens.CONFIG.reset_time * 1000L) setGlobalCycle(current);
-            }
-            default -> {}
         }
 
         List<RaidInstance> raids = new ArrayList<>(ACTIVE_RAIDS.values());
