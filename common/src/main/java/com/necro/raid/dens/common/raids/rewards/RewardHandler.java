@@ -20,6 +20,7 @@ import net.minecraft.advancements.CriteriaTriggers;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -63,9 +64,15 @@ public class RewardHandler {
             return;
         }
         if (this.raidBoss.getDisplaySpecies() == null) this.raidBoss.createDisplayAspects();
-        String speciesName = ((TranslatableContents) this.raidBoss.getDisplaySpecies().getTranslatedName().getContents()).getKey();
+        String speciesName = this.getDisplaySpeciesName();
         RaidDenNetworkMessages.REWARD_PACKET.accept(player, this.catchRate, speciesName);
         RaidHelper.REWARD_QUEUE.put(player.getUUID(), this);
+    }
+
+    private String getDisplaySpeciesName() {
+        Component name = this.raidBoss.getDisplaySpecies().getTranslatedName();
+        if (name.getContents() instanceof TranslatableContents contents) return contents.getKey();
+        return name.getString();
     }
 
     public boolean givePokemonToPlayer(ServerPlayer player) {
