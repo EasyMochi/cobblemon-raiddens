@@ -420,6 +420,32 @@ public abstract class RaidCrystalBlockEntity extends BlockEntity implements GeoB
         this.aspectSync = sync;
     }
 
+    private UUID loadUuid(CompoundTag compoundTag) {
+        if (!compoundTag.contains("uuid")) return UUID.randomUUID();
+        String value = compoundTag.getString("uuid");
+        try {
+            return UUID.fromString(value);
+        }
+        catch (IllegalArgumentException e) {
+            CobblemonRaidDens.LOGGER.warn("Ignoring malformed raid den UUID '{}' at {}", value, this.getBlockPos());
+            return UUID.randomUUID();
+        }
+    }
+
+    private ResourceLocation loadResourceLocation(CompoundTag compoundTag, String key) {
+        if (!compoundTag.contains(key)) return null;
+        String value = compoundTag.getString(key);
+        if (value.isBlank()) return null;
+
+        try {
+            return ResourceLocation.parse(value);
+        }
+        catch (Exception e) {
+            CobblemonRaidDens.LOGGER.warn("Ignoring malformed raid den {} '{}' at {}", key, value, this.getBlockPos());
+            return null;
+        }
+    }
+
     @Override
     protected void loadAdditional(CompoundTag compoundTag, HolderLookup.@NotNull Provider provider) {
         this.clears = compoundTag.getInt("raid_cleared");
@@ -427,10 +453,9 @@ public abstract class RaidCrystalBlockEntity extends BlockEntity implements GeoB
             ? RaidResetContext.load(compoundTag.getCompound("reset_context"))
             : new RaidResetContext(compoundTag.getLong("last_reset"));
 
-        if (compoundTag.contains("uuid")) this.uuid = UUID.fromString(compoundTag.getString("uuid"));
-        else this.uuid = UUID.randomUUID();
-        if (compoundTag.contains("raid_bucket")) this.raidBucket = ResourceLocation.parse(compoundTag.getString("raid_bucket"));
-        if (compoundTag.contains("raid_boss")) this.raidBoss = ResourceLocation.parse(compoundTag.getString("raid_boss"));
+        this.uuid = this.loadUuid(compoundTag);
+        this.raidBucket = this.loadResourceLocation(compoundTag, "raid_bucket");
+        this.raidBoss = this.loadResourceLocation(compoundTag, "raid_boss");
         if (compoundTag.contains("is_open")) this.isOpen = true;
         if (compoundTag.contains("aspects")) {
             Set<String> aspects = new HashSet<>();
