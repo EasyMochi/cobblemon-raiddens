@@ -15,6 +15,7 @@ import com.cobblemon.mod.common.battles.ShowdownInterpreter;
 import com.cobblemon.mod.common.battles.dispatch.*;
 import com.cobblemon.mod.common.battles.interpreter.instructions.MoveInstruction;
 import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
+import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.net.messages.client.battle.BattleHealthChangePacket;
 import com.cobblemon.mod.common.pokemon.status.PersistentStatusContainer;
 import com.cobblemon.mod.common.pokemon.status.statuses.persistent.PoisonStatus;
@@ -93,6 +94,7 @@ public class RaidDamageInstruction implements ActionEffectInstruction {
     @Override
     public void runActionEffect(@NotNull PokemonBattle battle, @NotNull MoLangRuntime runtime) {
         battle.dispatch(() -> {
+            if (this.expectedTarget == null || battle.getPlayers().isEmpty()) return DispatchResultKt.getGO();
             Effect effect = this.privateMessage.effect("from");
             Status status = effect == null ? null : Statuses.getStatus(effect.getId());
 
@@ -114,8 +116,11 @@ public class RaidDamageInstruction implements ActionEffectInstruction {
             }
             if (actionEffect == null) return DispatchResultKt.getGO();
 
+            PokemonEntity entity = this.expectedTarget.getEffectedPokemon().getEntity();
+            if (entity == null) return DispatchResultKt.getGO();
+
             List<Object> providers = new ArrayList<>(List.of(battle));
-            providers.add(new UsersProvider(this.expectedTarget.getEffectedPokemon().getEntity()));
+            providers.add(new UsersProvider(entity));
 
             ActionEffectContext context = new ActionEffectContext(
                 actionEffect, new HashSet<>(), providers, runtime, false, false,
@@ -133,12 +138,15 @@ public class RaidDamageInstruction implements ActionEffectInstruction {
     @Override
     public void postActionEffect(@NotNull PokemonBattle battle) {
         RaidInstance raidInstance = ((IRaidBattle) battle).crd_getRaidBattle();
+        if (raidInstance == null || raidInstance.isFinished()) return;
+
         BattlePokemon battlePokemon = this.publicMessage.battlePokemon(0, this.actor.battle);
         if (battlePokemon == null || battlePokemon.getEntity() == null) return;
         else if (!((IRaidAccessor) battlePokemon.getEntity()).crd_isRaidBoss()) return;
 
         String args = this.privateMessage.argumentAt(1);
-        assert args != null;
+        if (args == null || args.isBlank()) return;
+
         String damageStr = args.split(" ")[0];
         CauserInstruction lastCauser = this.instructionSet.getMostRecentCauser(this);
         Effect effect = this.privateMessage.effect("from");
@@ -157,12 +165,21 @@ public class RaidDamageInstruction implements ActionEffectInstruction {
                 else if (Set.of("aftermath", "innardsout").contains(effect.getId())) lang = LocalizationUtilsKt.battleLang("damage.generic", pokemonName);
                 else if (Set.of("chloroblast", "steelbeam").contains(effect.getId())) lang = LocalizationUtilsKt.battleLang("damage.mindblown", pokemonName);
                 else if (effect.getId().equals("jumpkick")) lang = LocalizationUtilsKt.battleLang("damage.highjumpkick", pokemonName);
-                else lang = LocalizationUtilsKt.battleLang("damage." + effect.getId(), pokemonName, source != null ? source.getName() : Component.literal("UNKOWN"));
+                else lang = LocalizationUtilsKt.battleLang("damage." + effect.getId(), pokemonName, source != null ? source.getName() : Component.literal("UNKNOWN"));
 
                 if (lang != null) battle.broadcastChatMessage(lang);
             }
 
-            float damage = Float.parseFloat(damageStr);
+            float damage;
+            try {
+                damage = Float.parseFloat(damageStr);
+            }
+            catch (NumberFormatException e) {
+                CobblemonRaidDens.LOGGER.warn("Ignoring malformed raid damage instruction: {}", damageStr);
+                return DispatchResultKt.getGO();
+            }
+
+            if (battle.getPlayers().isEmpty()) return DispatchResultKt.getGO();
 
             ServerPlayer player = battle.getPlayers().getFirst();
             raidInstance.syncHealth(player, battle, damage);
