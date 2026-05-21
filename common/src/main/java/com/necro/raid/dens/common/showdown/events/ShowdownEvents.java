@@ -1,6 +1,7 @@
 package com.necro.raid.dens.common.showdown.events;
 
 import com.cobblemon.mod.common.api.battles.model.PokemonBattle;
+import com.cobblemon.mod.common.api.battles.model.actor.BattleActor;
 import com.cobblemon.mod.common.api.pokemon.stats.Stat;
 import com.cobblemon.mod.common.api.pokemon.status.Status;
 import com.cobblemon.mod.common.battles.dispatch.DispatchResultKt;
@@ -12,6 +13,11 @@ import com.necro.raid.dens.common.compat.megashowdown.RaidDensMSDCompat;
 import java.util.Map;
 
 public class ShowdownEvents {
+    private static String bossActorUuid(PokemonBattle battle) {
+        BattleActor[] actors = battle.getSide2().getActors();
+        return actors.length == 0 ? null : actors[0].getUuid().toString();
+    }
+
     public record CheerAttackShowdownEvent(String origin) implements ShowdownEvent {
         public String build(PokemonBattle battle) {
             return String.format(
@@ -260,6 +266,8 @@ public class ShowdownEvents {
 
     public static class ResetBossShowdownEvent implements ShowdownEvent {
         public String build(PokemonBattle battle) {
+            String actorUuid = bossActorUuid(battle);
+            if (actorUuid == null) return "";
             return String.format(
                 ">eval " +
                     "battle.add('raidenergy', '%1$s', true); " +
@@ -272,7 +280,7 @@ public class ShowdownEvents {
                         "if (p.status !== 'shield') p.cureStatus(); " +
                         "battle.add('clearboss', p, '%1$s'); " +
                     "}",
-                battle.getSide2().getActors()[0].getUuid()
+                actorUuid
             );
         }
     }
@@ -503,15 +511,13 @@ public class ShowdownEvents {
             return ">eval " +
                 "const sourceSideConditions = battle.sides[0].sideConditions; " +
                 "const targetSideConditions = battle.sides[1].sideConditions; " +
-                "const sourceTemp: typeof sourceSideConditions = {}; " +
-                "const targetTemp: typeof targetSideConditions = {}; " +
+                "const sourceTemp = {}; " +
+                "const targetTemp = {}; " +
                 "for (const id in sourceSideConditions) { " +
-                    "if (!sideConditions.includes(id)) continue; " +
                     "sourceTemp[id] = sourceSideConditions[id]; " +
                     "delete sourceSideConditions[id]; " +
                 "} " +
                 "for (const id in targetSideConditions) { " +
-                    "if (!sideConditions.includes(id)) continue; " +
                     "targetTemp[id] = targetSideConditions[id]; " +
                     "delete targetSideConditions[id]; " +
                 "} " +
@@ -553,7 +559,7 @@ public class ShowdownEvents {
                 ">eval " +
                     "for (let p of battle.sides[1].pokemon) { " +
                         "if (!p) continue; " +
-                        "p.formeChange('%1s', null, true); " +
+                        "p.formeChange('%1$s', null, true); " +
                     "} ",
                 capitalize(this.form)
             );
@@ -655,6 +661,8 @@ public class ShowdownEvents {
 
     public static class ResetPlayerShowdownEvent implements BroadcastingShowdownEvent {
         public String build(PokemonBattle battle) {
+            String actorUuid = bossActorUuid(battle);
+            if (actorUuid == null) return "";
             return String.format(
                 ">eval " +
                     "battle.add('raidenergy', '%1$s'); " +
@@ -668,7 +676,7 @@ public class ShowdownEvents {
                         "if (p.volatiles['cheerdefense']) delete p.volatiles['cheerdefense']; " +
                         "battle.add('clearplayer', p, '%1$s'); " +
                     "}",
-                battle.getSide2().getActors()[0].getUuid()
+                actorUuid
             );
         }
     }
@@ -688,7 +696,9 @@ public class ShowdownEvents {
     public static class RaidEnergyShowdownEvent implements ShowdownEvent {
         @Override
         public String build(PokemonBattle battle) {
-            return String.format(">eval battle.add('raidenergy', '%1$s');", battle.getSide2().getActors()[0].getUuid());
+            String actorUuid = bossActorUuid(battle);
+            if (actorUuid == null) return "";
+            return String.format(">eval battle.add('raidenergy', '%1$s');", actorUuid);
         }
     }
 }
