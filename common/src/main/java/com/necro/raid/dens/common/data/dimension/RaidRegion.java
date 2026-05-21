@@ -25,6 +25,8 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.*;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
+
 public class RaidRegion {
     private static final int RADIUS = 128;
 
@@ -78,24 +80,23 @@ public class RaidRegion {
             if (e != null && !(e instanceof Player)) e.discard();
         }
 
+        Registry<Biome> registry = level.registryAccess().registryOrThrow(Registries.BIOME);
         for (int cx = chunkMinX; cx <= chunkMaxX; cx++) {
             for (int cz = chunkMinZ; cz <= chunkMaxZ; cz++) {
                 LevelChunk chunk = level.getChunk(cx, cz);
-                chunk.getBlockEntities().keySet().forEach(chunk::removeBlockEntity);
+                new ArrayList<>(chunk.getBlockEntities().keySet()).forEach(chunk::removeBlockEntity);
 
                 LevelChunkSection[] sections = chunk.getSections();
                 for (int i = 0; i < sections.length; i++) {
                     LevelChunkSection section = sections[i];
-                    if (section == null) continue;
+                    if (section == null || section.hasOnlyAir()) continue;
 
-                    if (!section.hasOnlyAir()) {
-                        Registry<Biome> registry = level.registryAccess().registryOrThrow(Registries.BIOME);
-                        chunk.getSections()[i] = new LevelChunkSection(
-                            new PalettedContainer<>(Block.BLOCK_STATE_REGISTRY, Blocks.AIR.defaultBlockState(), PalettedContainer.Strategy.SECTION_STATES),
-                            new PalettedContainer<>(registry.asHolderIdMap(), registry.getHolderOrThrow(ModDimensions.RAID_DIM_BIOME), PalettedContainer.Strategy.SECTION_BIOMES)
-                        );
-                        section.recalcBlockCounts();
-                    }
+                    LevelChunkSection replacement = new LevelChunkSection(
+                        new PalettedContainer<>(Block.BLOCK_STATE_REGISTRY, Blocks.AIR.defaultBlockState(), PalettedContainer.Strategy.SECTION_STATES),
+                        new PalettedContainer<>(registry.asHolderIdMap(), registry.getHolderOrThrow(ModDimensions.RAID_DIM_BIOME), PalettedContainer.Strategy.SECTION_BIOMES)
+                    );
+                    replacement.recalcBlockCounts();
+                    sections[i] = replacement;
                 }
                 chunk.initializeLightSources();
                 level.getChunkSource().getLightEngine().lightChunk(chunk, false);

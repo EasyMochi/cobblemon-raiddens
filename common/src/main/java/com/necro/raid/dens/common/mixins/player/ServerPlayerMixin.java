@@ -1,7 +1,6 @@
 package com.necro.raid.dens.common.mixins.player;
 
 import com.mojang.authlib.GameProfile;
-import com.necro.raid.dens.common.CobblemonRaidDens;
 import com.necro.raid.dens.common.util.IRaidTeleporter;
 import com.necro.raid.dens.common.util.RaidUtils;
 import net.minecraft.core.BlockPos;
@@ -55,7 +54,8 @@ public abstract class ServerPlayerMixin extends Player implements IRaidTeleporte
     @Override
     public ServerLevel crd_getHomeLevel() {
         if (this.crd_homeLevel == null) return this.server.overworld();
-        return this.server.getLevel(ResourceKey.create(Registries.DIMENSION, this.crd_homeLevel));
+        ServerLevel level = this.server.getLevel(ResourceKey.create(Registries.DIMENSION, this.crd_homeLevel));
+        return level == null ? this.server.overworld() : level;
     }
 
     @Override
@@ -72,7 +72,7 @@ public abstract class ServerPlayerMixin extends Player implements IRaidTeleporte
     @Override
     public void crd_returnHome() {
         ServerLevel level = this.crd_getHomeLevel();
-        if (level.getServer().isRunning()) {
+        if (level != null && level.getServer().isRunning()) {
             RaidUtils.teleportPlayerSafe((ServerPlayer) (Object) this, level, this.crd_getHomePos(), this.getYHeadRot(), this.getXRot());
             this.crd_clearHome();
         }
@@ -97,9 +97,7 @@ public abstract class ServerPlayerMixin extends Player implements IRaidTeleporte
             compoundTag.putString("crd_level", this.crd_homeLevel.toString());
         }
 
-        CobblemonRaidDens.LOGGER.info("Saving player data");
         if (this.crd_homePos != null && this.crd_homeLevel != null && RaidUtils.isRaidDimension(this.level())) {
-            CobblemonRaidDens.LOGGER.info("Overriding player pos and dimension");
             compoundTag.put("Pos", this.newDoubleList(this.crd_homePos.x(), this.crd_homePos.y(), this.crd_homePos.z()));
             compoundTag.putString("Dimension", this.crd_homeLevel.toString());
         }
