@@ -37,6 +37,7 @@
         "raid.PokemonBattleMixin",
         "raid.PokemonEntityMixin",
         "raid.PokemonMixin",
+        "raid.RaidInstanceSchedulerMixin",
         "showdown.ForcePassActionResponseMixin",
         "showdown.MoveActionResponseMixin",
         "showdown.MoveInstructionMixin",
