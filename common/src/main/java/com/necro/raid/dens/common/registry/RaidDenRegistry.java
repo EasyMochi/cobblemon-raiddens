@@ -49,8 +49,16 @@ public class RaidDenRegistry {
         return TEMPLATES.get(structure).bossPos;
     }
 
-    public static void clear() {
+    public static void clearTemplates() {
         TEMPLATES.clear();
+    }
+
+    public static void clearDenPools() {
+        DEN_POOL.clear();
+    }
+
+    public static void clear() {
+        clearTemplates();
     }
 
     private static class RaidStructureData {
