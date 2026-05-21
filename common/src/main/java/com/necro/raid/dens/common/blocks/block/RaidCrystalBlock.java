@@ -37,8 +37,6 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.pathfinder.PathComputationType;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
@@ -176,7 +174,9 @@ public abstract class RaidCrystalBlock extends BaseEntityBlock {
 
     private void failRaidStart(ServerPlayer player, RaidCrystalBlockEntity blockEntity) {
         RaidDenNetworkMessages.JOIN_RAID.accept(player, false);
-        blockEntity.closeRaid();
+        RaidInstance raid = RaidHelper.ACTIVE_RAIDS.get(blockEntity.getUuid());
+        if (raid != null) raid.closeRaid(player.getServer(), true);
+        else blockEntity.closeRaid();
         player.displayClientMessage(ComponentUtils.getErrorMessage("message.cobblemonraiddens.raid.boss_spawn_failed"), true);
     }
 
