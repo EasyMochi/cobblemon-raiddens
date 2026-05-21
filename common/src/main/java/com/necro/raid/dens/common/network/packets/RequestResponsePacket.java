@@ -6,6 +6,7 @@ import com.necro.raid.dens.common.data.dimension.RaidRegion;
 import com.necro.raid.dens.common.events.RaidEvents;
 import com.necro.raid.dens.common.events.RaidJoinEvent;
 import com.necro.raid.dens.common.network.ServerPacket;
+import com.necro.raid.dens.common.raids.RaidInstance;
 import com.necro.raid.dens.common.raids.helpers.RaidHelper;
 import com.necro.raid.dens.common.raids.RequestHandler;
 import com.necro.raid.dens.common.raids.helpers.RaidJoinHelper;
@@ -61,18 +62,21 @@ public record RequestResponsePacket(boolean accept, String player) implements Cu
         if (!success) return;
 
         RaidRegion region = RaidRegionHelper.getRegion(blockEntity.getUuid());
+        RaidInstance raid = RaidHelper.ACTIVE_RAIDS.get(blockEntity.getUuid());
 
-        if (region != null && RaidJoinHelper.isInQueue(player) && !RaidJoinHelper.isParticipating(player, false)) {
+        if (region != null && raid != null && RaidJoinHelper.isInQueue(player) && !RaidJoinHelper.isParticipating(player, false)) {
             assert player.getServer() != null;
             RaidJoinHelper.removeFromQueue(player, false);
             if (!RaidJoinHelper.addParticipant(player, blockEntity.getUuid(), false, true)) return;
 
-            RaidHelper.ACTIVE_RAIDS.get(blockEntity.getUuid()).addPlayer((ServerPlayer) player);
+            raid.addPlayer((ServerPlayer) player);
             RaidUtils.teleportPlayerToRaid((ServerPlayer) player, player.getServer(), region);
             blockEntity.syncAspects((ServerPlayer) player);
         }
         else {
-            RaidJoinHelper.removeFromQueue(player, false);
+            RaidJoinHelper.removeFromQueue(player, true);
+            RequestHandler handler = RaidHelper.REQUEST_QUEUE.get(host.getUUID());
+            if (handler != null) handler.removePlayer(player);
             host.displayClientMessage(ComponentUtils.getSystemMessage("message.cobblemonraiddens.raid.request_time_out"), true);
         }
     }
@@ -80,7 +84,8 @@ public record RequestResponsePacket(boolean accept, String player) implements Cu
     private void denyRequest(ServerPlayer host, Player player) {
         if (RaidJoinHelper.isInQueue(player)) {
             RaidJoinHelper.removeFromQueue(player, true);
-            RaidHelper.REQUEST_QUEUE.get(host.getUUID()).removePlayer(player);
+            RequestHandler handler = RaidHelper.REQUEST_QUEUE.get(host.getUUID());
+            if (handler != null) handler.removePlayer(player);
             player.displayClientMessage(ComponentUtils.getSystemMessage(
                 Component.translatable("message.cobblemonraiddens.raid.rejected_request", host.getName())), true
             );
