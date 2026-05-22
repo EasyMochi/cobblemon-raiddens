@@ -21,11 +21,14 @@ import com.necro.raid.dens.common.raids.helpers.RaidHelper;
 import com.necro.raid.dens.common.raids.helpers.RaidJoinHelper;
 import com.necro.raid.dens.common.raids.helpers.RaidRegionHelper;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.RelativeMovement;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -35,6 +38,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
@@ -43,6 +47,9 @@ import java.util.Set;
 import java.util.UUID;
 
 public class RaidUtils {
+    private static final int SAFE_HOME_SCAN_RANGE = 8;
+    private static final Set<RelativeMovement> NO_RELATIVE_MOVEMENT = Set.of();
+
     private static final Set<String> POKEMON_BLACKLIST = new HashSet<>();
     private static final Set<String> ABILITY_BLACKLIST = new HashSet<>();
     private static final Set<String> HELD_ITEM_BLACKLIST = new HashSet<>();
@@ -83,11 +90,12 @@ public class RaidUtils {
         ServerLevel level = ModDimensions.getRaidDimension(server);
         if (level == null) return;
 
-        ((IRaidTeleporter) player).crd_setHomePos(player.position());
-        ((IRaidTeleporter) player).crd_setHomeLevel(player.level().dimension().location());
+        ServerLevel homeLevel = player.serverLevel();
+        ((IRaidTeleporter) player).crd_setHomePos(getSafeHomePos(homeLevel, player.position()));
+        ((IRaidTeleporter) player).crd_setHomeLevel(homeLevel.dimension().location());
 
         Vec3 playerPos = region.getPlayerPos();
-        player.teleportTo(level, playerPos.x, playerPos.y, playerPos.z, new HashSet<>(), 180f, 0f);
+        player.teleportTo(level, playerPos.x, playerPos.y, playerPos.z, NO_RELATIVE_MOVEMENT, 180f, 0f);
     }
 
     public static void teleportPlayerSafe(ServerPlayer player, ServerLevel level, Vec3 targetPos, float yaw, float pitch) {
@@ -95,7 +103,62 @@ public class RaidUtils {
             if (pokemon.getState() instanceof ActivePokemonState && !(pokemon.getState() instanceof ShoulderedState)) pokemon.recall();
         });
 
-        player.teleportTo(level, targetPos.x(), targetPos.y(), targetPos.z(), new HashSet<>(), yaw, pitch);
+        player.stopRiding();
+        player.setDeltaMovement(Vec3.ZERO);
+        player.teleportTo(level, targetPos.x(), targetPos.y(), targetPos.z(), NO_RELATIVE_MOVEMENT, yaw, pitch);
+    }
+
+    public static Vec3 getSafeHomePos(ServerLevel level, Vec3 preferredPos) {
+        Vec3 safePos = findSafeHomePos(level, preferredPos);
+        if (safePos != null) return safePos;
+
+        Vec3 spawnPos = Vec3.atBottomCenterOf(level.getSharedSpawnPos());
+        safePos = findSafeHomePos(level, spawnPos);
+        return safePos == null ? spawnPos : safePos;
+    }
+
+    @Nullable
+    private static Vec3 findSafeHomePos(LevelReader level, Vec3 preferredPos) {
+        int x = Mth.floor(preferredPos.x());
+        int y = Math.max(level.getMinBuildHeight() + 1, Math.min(level.getMaxBuildHeight() - 2, Mth.floor(preferredPos.y())));
+        int z = Mth.floor(preferredPos.z());
+
+        BlockPos.MutableBlockPos feetPos = new BlockPos.MutableBlockPos();
+        BlockPos.MutableBlockPos scratchPos = new BlockPos.MutableBlockPos();
+
+        for (int offset = 0; offset <= SAFE_HOME_SCAN_RANGE; offset++) {
+            int downY = y - offset;
+            if (downY >= level.getMinBuildHeight() + 1) {
+                feetPos.set(x, downY, z);
+                Vec3 safePos = getStandingPos(level, feetPos, scratchPos);
+                if (safePos != null) return safePos;
+            }
+
+            if (offset == 0) continue;
+            int upY = y + offset;
+            if (upY <= level.getMaxBuildHeight() - 2) {
+                feetPos.set(x, upY, z);
+                Vec3 safePos = getStandingPos(level, feetPos, scratchPos);
+                if (safePos != null) return safePos;
+            }
+        }
+
+        return null;
+    }
+
+    @Nullable
+    private static Vec3 getStandingPos(LevelReader level, BlockPos.MutableBlockPos feetPos, BlockPos.MutableBlockPos scratchPos) {
+        if (!level.getBlockState(feetPos).getCollisionShape(level, feetPos).isEmpty()) return null;
+
+        scratchPos.set(feetPos.getX(), feetPos.getY() + 1, feetPos.getZ());
+        if (!level.getBlockState(scratchPos).getCollisionShape(level, scratchPos).isEmpty()) return null;
+
+        scratchPos.set(feetPos.getX(), feetPos.getY() - 1, feetPos.getZ());
+        BlockState belowState = level.getBlockState(scratchPos);
+        VoxelShape belowShape = belowState.getCollisionShape(level, scratchPos);
+        if (belowShape.isEmpty()) return null;
+
+        return new Vec3(feetPos.getX() + 0.5D, scratchPos.getY() + belowShape.max(Direction.Axis.Y), feetPos.getZ() + 0.5D);
     }
 
     public static void leaveRaid(Player player) {
