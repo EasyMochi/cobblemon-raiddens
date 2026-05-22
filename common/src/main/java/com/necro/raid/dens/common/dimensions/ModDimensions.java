@@ -36,7 +36,8 @@ public class ModDimensions {
     }
 
     public static void onDimensionChange(ServerPlayer player, ServerLevel from, ServerLevel to) {
-        boolean leavingDimension = RaidUtils.isRaidDimension(from);
+        boolean leavingDimension = from != null && RaidUtils.isRaidDimension(from);
+        boolean enteringDimension = to != null && RaidUtils.isRaidDimension(to);
         RaidJoinHelper.Participant participant = RaidJoinHelper.getParticipant(player);
         RaidInstance raid = participant == null ? null : RaidHelper.ACTIVE_RAIDS.get(participant.raid());
         if (raid == null) {
@@ -48,6 +49,6 @@ public class ModDimensions {
             raid.removeFromBossEvent(player);
             RaidUtils.leaveRaid(player);
         }
-        else if (RaidUtils.isRaidDimension(to)) raid.addToBossEvent(player);
+        else if (enteringDimension) raid.addToBossEvent(player);
     }
 }
