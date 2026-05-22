@@ -21,6 +21,7 @@ import com.necro.raid.dens.common.raids.helpers.RaidHelper;
 import com.necro.raid.dens.common.raids.helpers.RaidJoinHelper;
 import com.necro.raid.dens.common.raids.helpers.RaidRegionHelper;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -83,11 +84,11 @@ public class RaidUtils {
         ServerLevel level = ModDimensions.getRaidDimension(server);
         if (level == null) return;
 
-        ((IRaidTeleporter) player).crd_setHomePos(player.position());
+        ((IRaidTeleporter) player).crd_setHomePos(getSafeTeleportPos(player.level(), player.position()));
         ((IRaidTeleporter) player).crd_setHomeLevel(player.level().dimension().location());
 
         Vec3 playerPos = region.getPlayerPos();
-        player.teleportTo(level, playerPos.x, playerPos.y, playerPos.z, new HashSet<>(), 180f, 0f);
+        teleportPlayerSafe(player, level, playerPos, 180f, 0f);
     }
 
     public static void teleportPlayerSafe(ServerPlayer player, ServerLevel level, Vec3 targetPos, float yaw, float pitch) {
@@ -95,7 +96,35 @@ public class RaidUtils {
             if (pokemon.getState() instanceof ActivePokemonState && !(pokemon.getState() instanceof ShoulderedState)) pokemon.recall();
         });
 
+        player.stopRiding();
+        player.setDeltaMovement(Vec3.ZERO);
         player.teleportTo(level, targetPos.x(), targetPos.y(), targetPos.z(), new HashSet<>(), yaw, pitch);
+    }
+
+    public static Vec3 getSafeTeleportPos(LevelReader level, Vec3 targetPos) {
+        BlockPos targetBlockPos = BlockPos.containing(targetPos);
+        if (isSafeStandingPos(level, targetBlockPos)) return targetPos;
+
+        int minY = level.getMinBuildHeight() + 1;
+        int maxY = level.getMaxBuildHeight() - 2;
+        int startY = Math.max(minY, Math.min(maxY, targetBlockPos.getY()));
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos(targetBlockPos.getX(), startY, targetBlockPos.getZ());
+
+        for (int y = startY; y >= minY; y--) {
+            mutable.set(targetBlockPos.getX(), y, targetBlockPos.getZ());
+            if (isSafeStandingPos(level, mutable)) return Vec3.atBottomCenterOf(mutable);
+        }
+
+        return targetPos;
+    }
+
+    private static boolean isSafeStandingPos(LevelReader level, BlockPos blockPos) {
+        BlockState feet = level.getBlockState(blockPos);
+        BlockState head = level.getBlockState(blockPos.above());
+        BlockState below = level.getBlockState(blockPos.below());
+        return feet.getCollisionShape(level, blockPos).isEmpty()
+            && head.getCollisionShape(level, blockPos.above()).isEmpty()
+            && below.isFaceSturdy(level, blockPos.below(), Direction.UP);
     }
 
     public static void leaveRaid(Player player) {
