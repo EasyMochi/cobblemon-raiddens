@@ -43,6 +43,8 @@ import java.util.Set;
 import java.util.UUID;
 
 public class RaidUtils {
+    private static final int SAFE_RETURN_VERTICAL_SCAN = 12;
+
     private static final Set<String> POKEMON_BLACKLIST = new HashSet<>();
     private static final Set<String> ABILITY_BLACKLIST = new HashSet<>();
     private static final Set<String> HELD_ITEM_BLACKLIST = new HashSet<>();
@@ -83,7 +85,7 @@ public class RaidUtils {
         ServerLevel level = ModDimensions.getRaidDimension(server);
         if (level == null) return;
 
-        ((IRaidTeleporter) player).crd_setHomePos(player.position());
+        ((IRaidTeleporter) player).crd_setHomePos(getSafeReturnPos(player.level(), player.position()));
         ((IRaidTeleporter) player).crd_setHomeLevel(player.level().dimension().location());
 
         Vec3 playerPos = region.getPlayerPos();
@@ -110,7 +112,7 @@ public class RaidUtils {
             }
         }
 
-        teleportPlayerSafe(player, targetLevel, targetPos, player.getYRot(), player.getXRot());
+        teleportPlayerSafe(player, targetLevel, getSafeReturnPos(targetLevel, targetPos), player.getYRot(), player.getXRot());
         if (player instanceof IRaidTeleporter teleporter) teleporter.crd_clearHome();
         return true;
     }
@@ -123,6 +125,42 @@ public class RaidUtils {
         player.stopRiding();
         player.setDeltaMovement(Vec3.ZERO);
         player.teleportTo(level, targetPos.x(), targetPos.y(), targetPos.z(), new HashSet<>(), yaw, pitch);
+    }
+
+    public static Vec3 getSafeReturnPos(LevelReader level, Vec3 targetPos) {
+        BlockPos start = BlockPos.containing(targetPos);
+        if (isSafeStandingPos(level, start)) return targetPos;
+
+        int minY = level.getMinBuildHeight() + 1;
+        int maxY = level.getMaxBuildHeight() - 2;
+        int startY = Math.max(minY, Math.min(maxY, start.getY()));
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos(start.getX(), startY, start.getZ());
+
+        for (int offset = 0; offset <= SAFE_RETURN_VERTICAL_SCAN; offset++) {
+            int downY = startY - offset;
+            if (downY >= minY) {
+                mutable.set(start.getX(), downY, start.getZ());
+                if (isSafeStandingPos(level, mutable)) return new Vec3(targetPos.x(), downY, targetPos.z());
+            }
+
+            if (offset == 0) continue;
+            int upY = startY + offset;
+            if (upY <= maxY) {
+                mutable.set(start.getX(), upY, start.getZ());
+                if (isSafeStandingPos(level, mutable)) return new Vec3(targetPos.x(), upY, targetPos.z());
+            }
+        }
+
+        return targetPos;
+    }
+
+    private static boolean isSafeStandingPos(LevelReader level, BlockPos blockPos) {
+        BlockState feet = level.getBlockState(blockPos);
+        BlockState head = level.getBlockState(blockPos.above());
+        BlockState below = level.getBlockState(blockPos.below());
+        return feet.getCollisionShape(level, blockPos).isEmpty()
+            && head.getCollisionShape(level, blockPos.above()).isEmpty()
+            && !below.getCollisionShape(level, blockPos.below()).isEmpty();
     }
 
     public static void leaveRaid(Player player) {
@@ -208,7 +246,6 @@ public class RaidUtils {
         ABILITY_BLACKLIST.addAll(List.of(CobblemonRaidDens.BLACKLIST_CONFIG.abilities));
         HELD_ITEM_BLACKLIST.addAll(List.of(CobblemonRaidDens.BLACKLIST_CONFIG.held_items));
         MOVE_BLACKLIST.addAll(List.of(CobblemonRaidDens.BLACKLIST_CONFIG.moves));
-
         COMMAND_BLACKLIST.addAll(List.of(CobblemonRaidDens.BLACKLIST_CONFIG.commands));
 
         int maxSplit = 1;
