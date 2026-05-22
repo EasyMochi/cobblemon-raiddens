@@ -2,11 +2,13 @@ package com.necro.raid.dens.common.network.packets;
 
 import com.necro.raid.dens.common.CobblemonRaidDens;
 import com.necro.raid.dens.common.network.ServerPacket;
+import com.necro.raid.dens.common.util.IRaidTeleporter;
 import com.necro.raid.dens.common.util.RaidUtils;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.NotNull;
 
@@ -29,5 +31,10 @@ public record LeaveRaidPacket() implements CustomPacketPayload, ServerPacket {
     @Override
     public void handleServer(ServerPlayer player) {
         RaidUtils.leaveRaid(player);
+
+        ServerLevel level = player.serverLevel();
+        if (RaidUtils.isRaidDimension(level) && player instanceof IRaidTeleporter teleporter) {
+            teleporter.crd_returnHome();
+        }
     }
 }
