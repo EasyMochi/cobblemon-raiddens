@@ -1,13 +1,16 @@
 package com.necro.raid.dens.common.raids;
 
 import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.api.battles.model.ai.BattleAI;
 import com.cobblemon.mod.common.battles.*;
 import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.cobblemon.mod.common.battles.actor.PokemonBattleActor;
+import com.cobblemon.mod.common.battles.ai.StrongBattleAI;
 import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.util.PlayerExtensionsKt;
+import com.necro.raid.dens.common.CobblemonRaidDens;
 import com.necro.raid.dens.common.data.raid.RaidBoss;
 import com.necro.raid.dens.common.registry.CustomRaidRegistries;
 import com.necro.raid.dens.common.util.ITransformer;
@@ -18,6 +21,7 @@ import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.Supplier;
 
 public class RaidBuilder {
     public static BattleStartResult build(ServerPlayer player, PokemonEntity pokemonEntity, @Nullable UUID leadingPokemon, RaidBoss boss) {
@@ -33,7 +37,7 @@ public class RaidBuilder {
         PlayerBattleActor playerActor = new PlayerBattleActor(player.getUUID(), battleTeam);
         PokemonBattleActor wildActor = new PokemonBattleActor(pokemonEntity.getPokemon().getUuid(),
             new BattlePokemon(pokemonEntity.getPokemon(), pokemonEntity.getPokemon(), p -> Unit.INSTANCE),
-            Cobblemon.config.getDefaultFleeDistance() * 5, CustomRaidRegistries.AI_REGISTRY.get(boss.getRaidAI()).get()
+            Cobblemon.config.getDefaultFleeDistance() * 5, getRaidAI(boss)
         );
         setTransformTarget(pokemonEntity, wildActor);
 
@@ -62,6 +66,16 @@ public class RaidBuilder {
             return BattleRegistry.startBattle(battleFormat, new BattleSide(playerActor), new BattleSide(wildActor), true);
         }
         else return errors;
+    }
+
+    private static BattleAI getRaidAI(RaidBoss boss) {
+        String raidAI = boss.getRaidAI();
+        Supplier<BattleAI> supplier = raidAI == null ? null : CustomRaidRegistries.AI_REGISTRY.get(raidAI);
+        if (supplier == null) {
+            CobblemonRaidDens.LOGGER.warn("Raid boss {} references unknown raid AI '{}'; using strong AI fallback", boss.getId(), raidAI);
+            return new StrongBattleAI(5);
+        }
+        return supplier.get();
     }
 
     private static void setTransformTarget(PokemonEntity pokemonEntity, PokemonBattleActor wildActor) {
