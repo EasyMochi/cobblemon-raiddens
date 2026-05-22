@@ -4,7 +4,6 @@ import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.api.battles.model.PokemonBattle;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.pokemon.PokemonSeenEvent;
-import com.cobblemon.mod.common.battles.BattleFormat;
 import com.cobblemon.mod.common.battles.actor.PokemonBattleActor;
 import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
@@ -27,7 +26,6 @@ import com.necro.raid.dens.common.util.RaidUtils;
 import kotlin.Unit;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -39,7 +37,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Optional;
 import java.util.UUID;
 
-public record RaidChallengePacket(int targetedEntityId, UUID selectedPokemonId, BattleFormat battleFormat) implements CustomPacketPayload, ServerPacket {
+public record RaidChallengePacket(int targetedEntityId, UUID selectedPokemonId) implements CustomPacketPayload, ServerPacket {
     public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(CobblemonRaidDens.MOD_ID, "raid_challenge");
     public static final Type<RaidChallengePacket> PACKET_TYPE = new Type<>(ID);
     public static final StreamCodec<FriendlyByteBuf, RaidChallengePacket> CODEC = StreamCodec.ofMember(RaidChallengePacket::write, RaidChallengePacket::read);
@@ -47,11 +45,10 @@ public record RaidChallengePacket(int targetedEntityId, UUID selectedPokemonId, 
     public void write(FriendlyByteBuf buf) {
         buf.writeInt(this.targetedEntityId);
         buf.writeUUID(this.selectedPokemonId);
-        battleFormat.saveToBuffer((RegistryFriendlyByteBuf) buf);
     }
 
     public static RaidChallengePacket read(FriendlyByteBuf buf) {
-        return new RaidChallengePacket(buf.readInt(), buf.readUUID(), BattleFormat.Companion.loadFromBuffer((RegistryFriendlyByteBuf) buf));
+        return new RaidChallengePacket(buf.readInt(), buf.readUUID());
     }
 
     @Override
