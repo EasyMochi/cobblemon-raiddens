@@ -1,6 +1,7 @@
 package com.necro.raid.dens.common.data.raid;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
 import com.necro.raid.dens.common.CobblemonRaidDens;
 import com.necro.raid.dens.common.CobblemonRaidDensClient;
 import com.necro.raid.dens.common.util.DoubleWeightedRandomMap;
@@ -135,11 +136,20 @@ public enum RaidTier implements StringRepresentable {
     }
 
     public static RaidTier fromString(String name) {
-        try { return valueOf(name); }
-        catch (IllegalArgumentException e) { return null; }
+        if (name == null) return null;
+        for (RaidTier tier : values()) {
+            if (tier.name().equalsIgnoreCase(name) || tier.getSerializedName().equalsIgnoreCase(name)) return tier;
+        }
+        return null;
     }
 
     public static Codec<RaidTier> codec() {
-        return Codec.STRING.xmap(RaidTier::fromString, Enum::name);
+        return Codec.STRING.comapFlatMap(
+            name -> {
+                RaidTier tier = RaidTier.fromString(name);
+                return tier == null ? DataResult.error(() -> "Unknown raid tier: " + name) : DataResult.success(tier);
+            },
+            RaidTier::getSerializedName
+        );
     }
 }
