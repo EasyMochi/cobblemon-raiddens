@@ -110,7 +110,13 @@ public record RaidChallengePacket(int targetedEntityId, UUID selectedPokemonId) 
             RaidBuilder.build(player, pokemonEntity, leadingPokemon, boss)
                 .ifSuccessful(battle -> {
                     this.flagAsSeen(battle, pokemonEntity);
-                    if (!raid.isPlayerIn(player)) raid.addPlayer(player);
+
+                    boolean newParticipant = !raid.isPlayerIn(player);
+                    if (newParticipant) {
+                        this.logRaidBattleParticipant(player, pokemonEntity, boss, raidId, pokemon, raid.getPlayerCount() == 0);
+                        raid.addPlayer(player);
+                    }
+
                     raid.addBattle(battle);
                     RaidEvents.RAID_BATTLE_START.emit(new RaidBattleStartEvent(player, boss, battle));
 
@@ -125,6 +131,16 @@ public record RaidChallengePacket(int targetedEntityId, UUID selectedPokemonId) 
                     return Unit.INSTANCE;
                 });
         }
+    }
+
+    private void logRaidBattleParticipant(ServerPlayer player, PokemonEntity bossEntity, RaidBoss boss, UUID raidId, Pokemon selectedPokemon, boolean startsRaid) {
+        String action = startsRaid ? "started" : "joined";
+        String bossPokemon = bossEntity.getPokemon().getSpecies().getName();
+        String selectedPokemonName = selectedPokemon.getSpecies().getName();
+        CobblemonRaidDens.LOGGER.info(
+            "Player {} ({}) {} raid {} against {} ({}) using {} ({})",
+            player.getGameProfile().getName(), player.getUUID(), action, raidId, bossPokemon, boss.getId(), selectedPokemonName, selectedPokemon.getUuid()
+        );
     }
 
     private void setTransformTarget(PokemonEntity pokemonEntity, Pokemon pokemon) {
