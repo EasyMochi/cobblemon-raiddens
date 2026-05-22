@@ -90,11 +90,38 @@ public class RaidUtils {
         player.teleportTo(level, playerPos.x, playerPos.y, playerPos.z, new HashSet<>(), 180f, 0f);
     }
 
+    public static boolean returnHomeIfInRaidDimension(ServerPlayer player) {
+        if (player.getServer() == null || !isRaidDimension(player.level())) return false;
+
+        RaidDenNetworkMessages.JOIN_RAID.accept(player, false);
+        RaidJoinHelper.removeFromQueue(player, true);
+        RaidHelper.removeRequests(player.getUUID());
+        RaidHelper.removeRequestPlayer(player.getUUID());
+        RaidJoinHelper.removeParticipant(player);
+
+        ServerLevel targetLevel = player.getServer().overworld();
+        Vec3 targetPos = Vec3.atBottomCenterOf(targetLevel.getSharedSpawnPos());
+        if (player instanceof IRaidTeleporter teleporter) {
+            ServerLevel homeLevel = teleporter.crd_getHomeLevel();
+            Vec3 homePos = teleporter.crd_getHomePos();
+            if (homeLevel != null && !isRaidDimension(homeLevel)) {
+                targetLevel = homeLevel;
+                targetPos = homePos;
+            }
+        }
+
+        teleportPlayerSafe(player, targetLevel, targetPos, player.getYRot(), player.getXRot());
+        if (player instanceof IRaidTeleporter teleporter) teleporter.crd_clearHome();
+        return true;
+    }
+
     public static void teleportPlayerSafe(ServerPlayer player, ServerLevel level, Vec3 targetPos, float yaw, float pitch) {
         PlayerExtensionsKt.party(player).forEach(pokemon -> {
             if (pokemon.getState() instanceof ActivePokemonState && !(pokemon.getState() instanceof ShoulderedState)) pokemon.recall();
         });
 
+        player.stopRiding();
+        player.setDeltaMovement(Vec3.ZERO);
         player.teleportTo(level, targetPos.x(), targetPos.y(), targetPos.z(), new HashSet<>(), yaw, pitch);
     }
 
@@ -154,7 +181,7 @@ public class RaidUtils {
     }
 
     public static boolean isRaidDimension(Level level) {
-        return level.dimensionTypeRegistration().is(ModDimensions.RAID_DIM_TYPE);
+        return level != null && level.dimensionTypeRegistration().is(ModDimensions.RAID_DIM_TYPE);
     }
 
     public static boolean cannotBreak(Player player, Level level) {
@@ -181,6 +208,7 @@ public class RaidUtils {
         ABILITY_BLACKLIST.addAll(List.of(CobblemonRaidDens.BLACKLIST_CONFIG.abilities));
         HELD_ITEM_BLACKLIST.addAll(List.of(CobblemonRaidDens.BLACKLIST_CONFIG.held_items));
         MOVE_BLACKLIST.addAll(List.of(CobblemonRaidDens.BLACKLIST_CONFIG.moves));
+
         COMMAND_BLACKLIST.addAll(List.of(CobblemonRaidDens.BLACKLIST_CONFIG.commands));
 
         int maxSplit = 1;
