@@ -73,7 +73,7 @@ public abstract class ServerPlayerMixin extends Player implements IRaidTeleporte
     public void crd_returnHome() {
         ServerLevel level = this.crd_getHomeLevel();
         if (level != null && level.getServer().isRunning()) {
-            RaidUtils.teleportPlayerSafe((ServerPlayer) (Object) this, level, RaidUtils.getSafeHomePos(level, this.crd_getHomePos()), this.getYHeadRot(), this.getXRot());
+            RaidUtils.teleportPlayerSafe((ServerPlayer) (Object) this, level, RaidUtils.getSafeHomePos(level, this.crd_getHomePos(), (ServerPlayer) (Object) this), this.getYHeadRot(), this.getXRot());
             this.crd_clearHome();
         }
     }
@@ -98,7 +98,7 @@ public abstract class ServerPlayerMixin extends Player implements IRaidTeleporte
         }
 
         if (this.crd_homePos != null && this.crd_homeLevel != null && RaidUtils.isRaidDimension(this.level())) {
-            Vec3 safeHomePos = RaidUtils.getSafeHomePos(this.crd_getHomeLevel(), this.crd_homePos);
+            Vec3 safeHomePos = RaidUtils.getSafeHomePos(this.crd_getHomeLevel(), this.crd_homePos, (ServerPlayer) (Object) this);
             compoundTag.put("Pos", this.newDoubleList(safeHomePos.x(), safeHomePos.y(), safeHomePos.z()));
             compoundTag.putString("Dimension", this.crd_homeLevel.toString());
         }
