@@ -1,6 +1,7 @@
 package com.necro.raid.dens.common.mixins.player;
 
 import com.mojang.authlib.GameProfile;
+import com.necro.raid.dens.common.CobblemonRaidDens;
 import com.necro.raid.dens.common.util.IRaidTeleporter;
 import com.necro.raid.dens.common.util.RaidUtils;
 import net.minecraft.core.BlockPos;
@@ -114,7 +115,14 @@ public abstract class ServerPlayerMixin extends Player implements IRaidTeleporte
         }
 
         if (compoundTag.contains("crd_level")) {
-            this.crd_homeLevel = ResourceLocation.parse(compoundTag.getString("crd_level"));
+            String homeLevel = compoundTag.getString("crd_level");
+            try {
+                this.crd_homeLevel = ResourceLocation.parse(homeLevel);
+            }
+            catch (Exception e) {
+                CobblemonRaidDens.LOGGER.warn("Ignoring malformed raid home dimension '{}' for player {}", homeLevel, this.getUUID());
+                this.crd_clearHome();
+            }
         }
     }
 }
