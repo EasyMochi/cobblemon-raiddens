@@ -44,6 +44,8 @@ import java.util.Set;
 import java.util.UUID;
 
 public class RaidUtils {
+    private static final int SAFE_TELEPORT_VERTICAL_SCAN = 16;
+
     private static final Set<String> POKEMON_BLACKLIST = new HashSet<>();
     private static final Set<String> ABILITY_BLACKLIST = new HashSet<>();
     private static final Set<String> HELD_ITEM_BLACKLIST = new HashSet<>();
@@ -95,7 +97,9 @@ public class RaidUtils {
         if (player.getServer() == null || !isRaidDimension(player.level())) return false;
 
         RaidDenNetworkMessages.JOIN_RAID.accept(player, false);
+        RaidJoinHelper.removeFromQueue(player, true);
         RaidHelper.removeRequests(player.getUUID());
+        RaidHelper.removeRequestPlayer(player.getUUID());
         RaidJoinHelper.removeParticipant(player);
 
         ServerLevel targetLevel = null;
@@ -137,9 +141,19 @@ public class RaidUtils {
         int startY = Math.max(minY, Math.min(maxY, targetBlockPos.getY()));
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos(targetBlockPos.getX(), startY, targetBlockPos.getZ());
 
-        for (int y = startY; y >= minY; y--) {
-            mutable.set(targetBlockPos.getX(), y, targetBlockPos.getZ());
-            if (isSafeStandingPos(level, mutable)) return Vec3.atBottomCenterOf(mutable);
+        for (int offset = 0; offset <= SAFE_TELEPORT_VERTICAL_SCAN; offset++) {
+            int downY = startY - offset;
+            if (downY >= minY) {
+                mutable.set(targetBlockPos.getX(), downY, targetBlockPos.getZ());
+                if (isSafeStandingPos(level, mutable)) return Vec3.atBottomCenterOf(mutable);
+            }
+
+            if (offset == 0) continue;
+            int upY = startY + offset;
+            if (upY <= maxY) {
+                mutable.set(targetBlockPos.getX(), upY, targetBlockPos.getZ());
+                if (isSafeStandingPos(level, mutable)) return Vec3.atBottomCenterOf(mutable);
+            }
         }
 
         return targetPos;
