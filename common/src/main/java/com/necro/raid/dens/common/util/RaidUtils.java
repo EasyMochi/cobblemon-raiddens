@@ -109,12 +109,25 @@ public class RaidUtils {
     }
 
     public static Vec3 getSafeHomePos(ServerLevel level, Vec3 preferredPos) {
+        return getSafeHomePos(level, preferredPos, null);
+    }
+
+    public static Vec3 getSafeHomePos(ServerLevel level, Vec3 preferredPos, @Nullable ServerPlayer player) {
         Vec3 safePos = findSafeHomePos(level, preferredPos);
         if (safePos != null) return safePos;
 
         Vec3 spawnPos = Vec3.atBottomCenterOf(level.getSharedSpawnPos());
         safePos = findSafeHomePos(level, spawnPos);
-        return safePos == null ? spawnPos : safePos;
+        Vec3 fallbackPos = safePos == null ? spawnPos : safePos;
+
+        if (player != null) {
+            CobblemonRaidDens.LOGGER.warn(
+                "Could not return player {} ({}) to saved raid home position {} in {}; sending them to world spawn at {}",
+                player.getGameProfile().getName(), player.getUUID(), preferredPos, level.dimension().location(), fallbackPos
+            );
+        }
+
+        return fallbackPos;
     }
 
     @Nullable
