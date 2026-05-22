@@ -18,16 +18,43 @@ public class ShowdownEvents {
         return actors.length == 0 ? null : actors[0].getUuid().toString();
     }
 
+    private static String jsString(String value) {
+        if (value == null) return "''";
+
+        StringBuilder result = new StringBuilder(value.length() + 2);
+        result.append('\'');
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '\\' -> result.append("\\\\");
+                case '\'' -> result.append("\\'");
+                case '\n' -> result.append("\\n");
+                case '\r' -> result.append("\\r");
+                case '\t' -> result.append("\\t");
+                case '\b' -> result.append("\\b");
+                case '\f' -> result.append("\\f");
+                case '\u2028' -> result.append("\\u2028");
+                case '\u2029' -> result.append("\\u2029");
+                default -> {
+                    if (c < 0x20) result.append(String.format("\\u%04x", (int) c));
+                    else result.append(c);
+                }
+            }
+        }
+        result.append('\'');
+        return result.toString();
+    }
+
     public record CheerAttackShowdownEvent(String origin) implements ShowdownEvent {
         public String build(PokemonBattle battle) {
             return String.format(
                 ">eval " +
-                    "battle.add('cheer', 'cheer_attack', '%1$s'); " +
+                    "battle.add('cheer', 'cheer_attack', %1$s); " +
                     "for (let p of battle.sides[0].pokemon) { " +
                         "if (!p) continue; " +
                         "p.addVolatile('cheerattack'); " +
                     "} ",
-                this.origin
+                jsString(this.origin)
             );
         }
     }
@@ -36,12 +63,12 @@ public class ShowdownEvents {
         public String build(PokemonBattle battle) {
             return String.format(
                 ">eval " +
-                    "battle.add('cheer', 'cheer_defense', '%1$s'); " +
+                    "battle.add('cheer', 'cheer_defense', %1$s); " +
                     "for (let p of battle.sides[0].pokemon) { " +
                         "if (!p) continue; " +
                         "p.addVolatile('cheerdefense'); " +
                     "} ",
-                this.origin
+                jsString(this.origin)
             );
         }
     }
@@ -50,14 +77,14 @@ public class ShowdownEvents {
         public String build(PokemonBattle battle) {
             return String.format(
                 ">eval " +
-                    "battle.add('cheer', 'cheer_heal', '%1$s'); " +
+                    "battle.add('cheer', 'cheer_heal', %1$s); " +
                     "for (let p of battle.sides[0].pokemon) { " +
                         "if (!p) continue; " +
                         "p.heal(Math.floor(p.maxhp * 0.5)); " +
                         "p.cureStatus(); " +
                         "battle.add('-heal', p, p.getHealth, '[from] bagitem: ' + 'cheer_heal'); " +
                     "} ",
-                this.origin
+                jsString(this.origin)
             );
         }
     }
@@ -81,9 +108,9 @@ public class ShowdownEvents {
         public String build(PokemonBattle battle) {
             return String.format(
                 ">eval " +
-                    "const pseudoWeather = battle.dex.conditions.get('%1$s'); " +
+                    "const pseudoWeather = battle.dex.conditions.get(%1$s); " +
                     "if (pseudoWeather && battle.field.pseudoWeather[pseudoWeather.id]) delete battle.field.pseudoWeather[pseudoWeather.id]; ",
-                this.field
+                jsString(this.field)
             );
         }
     }
@@ -109,10 +136,10 @@ public class ShowdownEvents {
         public String build(PokemonBattle battle) {
             return String.format(
                 ">eval " +
-                    "const condition = battle.dex.conditions.get('%1$s'); " +
+                    "const condition = battle.dex.conditions.get(%1$s); " +
                     "const side = battle.sides[%2$d]; " +
                     "if (condition && side && side.sideConditions[condition.id]) delete side.sideConditions[condition.id]; ",
-                this.sideCondition, this.side - 1
+                jsString(this.sideCondition), this.side - 1
             );
         }
     }
@@ -134,12 +161,12 @@ public class ShowdownEvents {
             if (this.status instanceof VolatileStatus) {
                 return String.format(
                     ">eval " +
-                        "const status = battle.dex.conditions.get('%1$s'); " +
+                        "const status = battle.dex.conditions.get(%1$s); " +
                         "for (let p of battle.sides[%2$d].pokemon) { " +
                             "if (!p || !status || !p.volatiles[status.id]) continue; " +
                             "delete p.volatiles[status.id]; " +
                         "} ",
-                    this.status.getShowdownName(), this.targetSide - 1);
+                    jsString(this.status.getShowdownName()), this.targetSide - 1);
             }
             else {
                 return String.format(
@@ -194,7 +221,7 @@ public class ShowdownEvents {
 
     public record PlayerJoinShowdownEvent(String player) implements ShowdownEvent {
         public String build(PokemonBattle battle) {
-            return String.format(">eval const boss = battle.sides[1].pokemon[0]; if (boss) battle.add('playerjoin', boss, '%1$s');", this.player);
+            return String.format(">eval const boss = battle.sides[1].pokemon[0]; if (boss) battle.add('playerjoin', boss, %1$s);", jsString(this.player));
         }
     }
 
@@ -203,7 +230,7 @@ public class ShowdownEvents {
             return String.format(
                 ">eval " +
                     "var boosts = {};" +
-                    "boosts['%1$s'] = %2$d; " +
+                    "boosts[%1$s] = %2$d; " +
                     "for (let p of battle.sides[1].pokemon) { " +
                         "if (!p) continue; " +
                         "var boost = battle.runEvent('ChangeBoost', p, p, {name: 'Raid Energy'}, {...boosts}); " +
@@ -223,7 +250,7 @@ public class ShowdownEvents {
                             "} " +
                         "} " +
                     "} ",
-                this.stat.getShowdownId(), this.stages
+                jsString(this.stat.getShowdownId()), this.stages
             );
         }
     }
@@ -270,7 +297,7 @@ public class ShowdownEvents {
             if (actorUuid == null) return "";
             return String.format(
                 ">eval " +
-                    "battle.add('raidenergy', '%1$s', true); " +
+                    "battle.add('raidenergy', %1$s, true); " +
                     "for (let p of battle.sides[1].pokemon) { " +
                         "if (!p) continue; " +
                         "for (let i in p.boosts) { " +
@@ -278,9 +305,9 @@ public class ShowdownEvents {
                             "p.boosts[i] = 0; " +
                         "} " +
                         "if (p.status !== 'shield') p.cureStatus(); " +
-                        "battle.add('clearboss', p, '%1$s'); " +
+                        "battle.add('clearboss', p, %1$s); " +
                     "}",
-                actorUuid
+                jsString(actorUuid)
             );
         }
     }
@@ -291,9 +318,9 @@ public class ShowdownEvents {
                 ">eval " +
                     "for (let p of battle.sides[%3$d].pokemon) { " +
                         "if (!p) continue; " +
-                        "p.boosts['%1$s'] = %2$d; " +
+                        "p.boosts[%1$s] = %2$d; " +
                     "} ",
-                this.stat.getShowdownId(), this.stages, this.targetSide - 1
+                jsString(this.stat.getShowdownId()), this.stages, this.targetSide - 1
             );
         }
     }
@@ -303,14 +330,14 @@ public class ShowdownEvents {
             return String.format(
                 ">eval " +
                     "const pokemon = battle.sides[1].pokemon[0]; " +
-                    "const pseudoWeather = battle.dex.conditions.get('%1$s'); " +
+                    "const pseudoWeather = battle.dex.conditions.get(%1$s); " +
                     "if (pokemon && pseudoWeather) battle.field.pseudoWeather[pseudoWeather.id] = { " +
                         "id: pseudoWeather.id, " +
                         "source: pokemon, " +
                         "sourceSlot: pokemon.getSlot(), " +
                         "duration: pseudoWeather.duration " +
                     "};",
-                this.field
+                jsString(this.field)
             );
         }
     }
@@ -320,7 +347,7 @@ public class ShowdownEvents {
         public String build(PokemonBattle battle) {
             return String.format(
                 ">eval " +
-                    "const condition = battle.dex.conditions.get('%1$s'); " +
+                    "const condition = battle.dex.conditions.get(%1$s); " +
                     "const side = battle.sides[%2$d]; " +
                     "const pokemon = side ? side.pokemon[0] : null; " +
                     "if (condition && side && pokemon && !side.sideConditions[condition.id]) { " +
@@ -337,7 +364,7 @@ public class ShowdownEvents {
                         "if (condition.id === 'spikes' && battle.effectState.layers < 3) battle.effectState.layers++; " +
                         "if (condition.id === 'toxicspikes' && battle.effectState.layers < 2) battle.effectState.layers++; " +
                     "} ",
-                this.sideCondition, this.side - 1
+                jsString(this.sideCondition), this.side - 1
             );
         }
     }
@@ -347,7 +374,7 @@ public class ShowdownEvents {
             if (this.status instanceof VolatileStatus) {
                 return String.format(
                     ">eval " +
-                        "const status = battle.dex.conditions.get('%1$s'); " +
+                        "const status = battle.dex.conditions.get(%1$s); " +
                         "for (let p of battle.sides[%2$d].pokemon) { " +
                             "if (!p || !status || status.id === 'typechange') continue; " +
                             "if (p.volatiles[status.id]) { " +
@@ -357,12 +384,12 @@ public class ShowdownEvents {
                             "p.volatiles[status.id] = { id: status.id, name: status.name, target: p }; " +
                             "if (status.id === 'confusion') p.volatiles[status.id].time = battle.random(2, 6); " +
                         "} ",
-                    this.status.getShowdownName(), this.targetSide - 1);
+                    jsString(this.status.getShowdownName()), this.targetSide - 1);
             }
             else {
                 return String.format(
                     ">eval " +
-                        "const status = battle.dex.conditions.get('%1$s'); " +
+                        "const status = battle.dex.conditions.get(%1$s); " +
                         "for (let p of battle.sides[%2$d].pokemon) { " +
                             "if (p && status && p.status !== 'shield') {" +
                                 "if (p.status === status.id) continue; " +
@@ -379,7 +406,7 @@ public class ShowdownEvents {
                                 "battle.runEvent('AfterSetStatus', p, null, null, status);" +
                             "} " +
                         "}",
-                    this.status.getShowdownName(), this.targetSide - 1);
+                    jsString(this.status.getShowdownName()), this.targetSide - 1);
             }
         }
     }
@@ -390,7 +417,7 @@ public class ShowdownEvents {
                 return String.format(
                     ">eval " +
                         "const pokemon = battle.sides[1].pokemon[0]; " +
-                        "const terrain = battle.dex.conditions.get('%1$s'); " +
+                        "const terrain = battle.dex.conditions.get(%1$s); " +
                         "if (pokemon && terrain) { " +
                             "battle.field.terrain = terrain.id; " +
                             "battle.field.terrainState = { " +
@@ -400,15 +427,15 @@ public class ShowdownEvents {
                                 "duration: terrain.duration " +
                             "}; " +
                         "}",
-                    this.terrain
+                    jsString(this.terrain)
                 );
             }
             else {
                 return String.format(
                     ">eval " +
                         "const pokemon = battle.sides[1].pokemon[0]; " +
-                        "if (pokemon) battle.field.setTerrain('%s', pokemon); ",
-                    this.terrain
+                        "if (pokemon) battle.field.setTerrain(%s, pokemon); ",
+                    jsString(this.terrain)
                 );
             }
         }
@@ -419,21 +446,21 @@ public class ShowdownEvents {
             if (this.isSilent) {
                 return String.format(
                     ">eval " +
-                        "const weather = battle.dex.conditions.get('%1$s'); " +
+                        "const weather = battle.dex.conditions.get(%1$s); " +
                         "if (weather) { " +
                             "battle.field.weather = weather.id; " +
                             "battle.field.weatherState = { id: weather.id };" +
                             "if (weather.duration) battle.field.weatherState.duration = weather.duration; " +
                         "}",
-                    this.weather
+                    jsString(this.weather)
                 );
             }
             else {
                 return String.format(
                     ">eval " +
                         "const pokemon = battle.sides[1].pokemon[0]; " +
-                        "if (pokemon) battle.field.setWeather('%s', pokemon);",
-                    this.weather
+                        "if (pokemon) battle.field.setWeather(%s, pokemon);",
+                    jsString(this.weather)
                 );
             }
         }
@@ -468,7 +495,7 @@ public class ShowdownEvents {
                 return String.format(
                     ">eval " +
                         "var boosts = {};" +
-                        "boosts['%1$s'] = %2$d; " +
+                        "boosts[%1$s] = %2$d; " +
                         "for (let p of battle.sides[%3$d].pokemon) { " +
                             "if (!p) continue; " +
                             "var boost = battle.runEvent('ChangeBoost', p, p, {name: 'Raid Energy'}, {...boosts}); " +
@@ -480,19 +507,19 @@ public class ShowdownEvents {
                                 "if (boostBy) battle.runEvent('AfterEachBoost', p, p, {name: 'Raid Energy'}, currentBoost); " +
                             "} " +
                         "} ",
-                    this.stat.getShowdownId(), this.stages, this.targetSide - 1
+                    jsString(this.stat.getShowdownId()), this.stages, this.targetSide - 1
                 );
             }
             else {
                 return String.format(
                     ">eval " +
                         "var boosts = {};" +
-                        "boosts['%1$s'] = %2$d; " +
+                        "boosts[%1$s] = %2$d; " +
                         "for (let p of battle.sides[%3$d].pokemon) { " +
                             "if (!p) continue; " +
                             "battle.boost(boosts, p, null, '[from] Raid'); " +
                         "} ",
-                    this.stat.getShowdownId(), this.stages, this.targetSide - 1
+                    jsString(this.stat.getShowdownId()), this.stages, this.targetSide - 1
                 );
             }
         }
@@ -563,13 +590,14 @@ public class ShowdownEvents {
                 ">eval " +
                     "for (let p of battle.sides[1].pokemon) { " +
                         "if (!p) continue; " +
-                        "p.formeChange('%1$s', null, true); " +
+                        "p.formeChange(%1$s, null, true); " +
                     "} ",
-                capitalize(this.form)
+                jsString(capitalize(this.form))
             );
         }
 
         private static String capitalize(String input) {
+            if (input == null) return "";
             String[] parts = input.split("(?<=[-_ ])|(?=[-_ ])");
             StringBuilder result = new StringBuilder();
 
@@ -601,12 +629,12 @@ public class ShowdownEvents {
             return String.format(
                 ">eval " +
                     "var boosts = {};" +
-                    "boosts['%1$s'] = %2$d; " +
+                    "boosts[%1$s] = %2$d; " +
                     "for (let p of battle.sides[0].pokemon) { " +
                         "if (!p) continue; " +
                         "battle.boost(boosts, p, null, '[from] Raid'); " +
                     "} ",
-                this.stat.getShowdownId(), this.stages
+                jsString(this.stat.getShowdownId()), this.stages
             );
         }
     }
@@ -650,15 +678,15 @@ public class ShowdownEvents {
             return String.format(
                 ">eval " +
                     "var boosts = {};" +
-                    "boosts['%2$s'] = %3$d; " +
+                    "boosts[%2$s] = %3$d; " +
                     "for (let p of battle.sides[0].pokemon) { " +
                         "if (!p) continue; " +
-                        "else if (['gearup', 'magneticflux'].includes('%1$s')) { " +
+                        "else if (['gearup', 'magneticflux'].includes(battle.toID(%1$s))) { " +
                             "if (!p.hasAbility('plus') && !p.hasAbility('minus')) continue; " +
                         "} " +
                         "battle.boost(boosts, p, null, '[from] Raid'); " +
                     "} ",
-                this.move, this.stat.getShowdownId(), this.stages
+                jsString(this.move), jsString(this.stat.getShowdownId()), this.stages
             );
         }
     }
@@ -669,7 +697,7 @@ public class ShowdownEvents {
             if (actorUuid == null) return "";
             return String.format(
                 ">eval " +
-                    "battle.add('raidenergy', '%1$s'); " +
+                    "battle.add('raidenergy', %1$s); " +
                     "for (let p of battle.sides[0].pokemon) { " +
                         "if (!p) continue; " +
                         "for (let i in p.boosts) { " +
@@ -678,9 +706,9 @@ public class ShowdownEvents {
                         "} " +
                         "if (p.volatiles['cheerattack']) delete p.volatiles['cheerattack']; " +
                         "if (p.volatiles['cheerdefense']) delete p.volatiles['cheerdefense']; " +
-                        "battle.add('clearplayer', p, '%1$s'); " +
+                        "battle.add('clearplayer', p, %1$s); " +
                     "}",
-                actorUuid
+                jsString(actorUuid)
             );
         }
     }
@@ -691,10 +719,10 @@ public class ShowdownEvents {
                 ">eval " +
                     "let p = battle.sides[1].pokemon[0]; " +
                     "if (p) { " +
-                        "p.side.lastSelectedMove = battle.toID('%1$s'); " +
-                        "battle.actions.runMove('%1$s', p, %2$d, null, null, true); " +
+                        "p.side.lastSelectedMove = battle.toID(%1$s); " +
+                        "battle.actions.runMove(%1$s, p, %2$d, null, null, true); " +
                     "}",
-                this.move, this.target
+                jsString(this.move), this.target
             );
         }
     }
@@ -704,7 +732,7 @@ public class ShowdownEvents {
         public String build(PokemonBattle battle) {
             String actorUuid = bossActorUuid(battle);
             if (actorUuid == null) return "";
-            return String.format(">eval battle.add('raidenergy', '%1$s');", actorUuid);
+            return String.format(">eval battle.add('raidenergy', %1$s);", jsString(actorUuid));
         }
     }
 }
