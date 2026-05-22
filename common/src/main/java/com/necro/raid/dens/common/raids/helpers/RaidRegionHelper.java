@@ -40,7 +40,9 @@ public class RaidRegionHelper {
     public static void clearRegion(UUID raid, ServerLevel level) {
         Integer index = INDEX_MAP.remove(raid);
         if (index == null) return;
-        REGION_MAP.remove(index).clearRegion(level);
+
+        RaidRegion region = REGION_MAP.remove(index);
+        if (region != null) region.clearRegion(level);
     }
 
     private static BlockPos coordFromIndex(int index) {
