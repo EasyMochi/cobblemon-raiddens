@@ -40,8 +40,8 @@ public class ModEvents {
         if (!(event.getEntity() instanceof ServerPlayer player) || player.getServer() == null) return;
         RaidDenNetworkMessages.SYNC_CONFIG.accept(player);
         player.getServer().execute(() -> {
-            if (RaidUtils.rescueFromRaidDimension(player)) return;
-            if (RaidJoinHelper.isParticipatingOrInQueue(player, false)) {
+            boolean rescued = RaidUtils.rescueFromRaidDimension(player);
+            if (!rescued && RaidJoinHelper.isParticipatingOrInQueue(player, false)) {
                 RaidDenNetworkMessages.JOIN_RAID.accept(player, true);
             }
             if (RaidHelper.REWARD_QUEUE.containsKey(player.getUUID())) RaidHelper.REWARD_QUEUE.get(player.getUUID()).sendRewardMessage(player);
