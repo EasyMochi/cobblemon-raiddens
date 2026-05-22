@@ -24,11 +24,16 @@ public class RequestHandler {
         this.players.put(player.getUUID(), player);
     }
 
-    public Player getPlayer(String player) {
+    public UUID getPlayerId(String player) {
         for (Player value : this.players.values()) {
-            if (value.getName().getString().equals(player)) return value;
+            if (value.getName().getString().equals(player)) return value.getUUID();
         }
         return null;
+    }
+
+    public Player getPlayer(String player) {
+        UUID playerId = this.getPlayerId(player);
+        return playerId == null ? null : this.players.get(playerId);
     }
 
     public void removePlayer(Player player) {

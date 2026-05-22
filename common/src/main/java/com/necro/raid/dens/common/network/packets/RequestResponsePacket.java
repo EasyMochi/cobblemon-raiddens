@@ -19,8 +19,9 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.UUID;
 
 public record RequestResponsePacket(boolean accept, String player) implements CustomPacketPayload, ServerPacket {
     public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(CobblemonRaidDens.MOD_ID, "request_response");
@@ -45,14 +46,22 @@ public record RequestResponsePacket(boolean accept, String player) implements Cu
     public void handleServer(ServerPlayer host) {
         RequestHandler handler = RaidHelper.getRequest(host);
         if (handler == null) return;
-        Player player = handler.getPlayer(this.player);
-        if (player == null) return;
+
+        UUID playerId = handler.getPlayerId(this.player);
+        if (playerId == null) return;
+
+        ServerPlayer player = host.server.getPlayerList().getPlayer(playerId);
+        if (player == null) {
+            handler.removePlayer(playerId);
+            return;
+        }
+
         RaidCrystalBlockEntity blockEntity = handler.getBlockEntity();
         if (this.accept) this.acceptRequest(host, player, blockEntity);
         else this.denyRequest(host, player);
     }
 
-    private void acceptRequest(ServerPlayer host, Player player, RaidCrystalBlockEntity blockEntity) {
+    private void acceptRequest(ServerPlayer host, ServerPlayer player, RaidCrystalBlockEntity blockEntity) {
         if (blockEntity.isFull()) {
             RaidJoinHelper.removeFromQueue(player, true);
             this.removeRequest(host, player);
@@ -61,7 +70,7 @@ public record RequestResponsePacket(boolean accept, String player) implements Cu
             return;
         }
 
-        boolean success = RaidEvents.RAID_JOIN.postWithResult(new RaidJoinEvent((ServerPlayer) player, false, blockEntity.getRaidBoss()));
+        boolean success = RaidEvents.RAID_JOIN.postWithResult(new RaidJoinEvent(player, false, blockEntity.getRaidBoss()));
         if (!success) {
             RaidJoinHelper.removeFromQueue(player, true);
             this.removeRequest(host, player);
@@ -84,9 +93,9 @@ public record RequestResponsePacket(boolean accept, String player) implements Cu
             }
             this.removeRequest(host, player);
 
-            raid.addPlayer((ServerPlayer) player);
-            RaidUtils.teleportPlayerToRaid((ServerPlayer) player, player.getServer(), region);
-            blockEntity.syncAspects((ServerPlayer) player);
+            raid.addPlayer(player);
+            RaidUtils.teleportPlayerToRaid(player, player.getServer(), region);
+            blockEntity.syncAspects(player);
         }
         else {
             RaidJoinHelper.removeFromQueue(player, true);
@@ -95,7 +104,7 @@ public record RequestResponsePacket(boolean accept, String player) implements Cu
         }
     }
 
-    private void denyRequest(ServerPlayer host, Player player) {
+    private void denyRequest(ServerPlayer host, ServerPlayer player) {
         if (RaidJoinHelper.isInQueue(player)) {
             RaidJoinHelper.removeFromQueue(player, true);
             this.removeRequest(host, player);
@@ -110,7 +119,7 @@ public record RequestResponsePacket(boolean accept, String player) implements Cu
         }
     }
 
-    private void removeRequest(ServerPlayer host, Player player) {
+    private void removeRequest(ServerPlayer host, ServerPlayer player) {
         RequestHandler handler = RaidHelper.REQUEST_QUEUE.get(host.getUUID());
         if (handler != null) handler.removePlayer(player);
     }

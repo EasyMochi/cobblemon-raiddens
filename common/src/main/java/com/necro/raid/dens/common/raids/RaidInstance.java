@@ -176,6 +176,8 @@ public class RaidInstance {
     }
 
     public void addPlayer(ServerPlayer player) {
+        if (this.playerMap.containsKey(player.getUUID())) return;
+
         this.addToBossEvent(player);
 
         this.damageTracker.put(player.getUUID(), 0F);
@@ -315,10 +317,10 @@ public class RaidInstance {
 
             BattlePokemon battlePokemon = activePokemon.getFirst().getBattlePokemon();
             if (battlePokemon == null || battlePokemon.getEntity() == null) continue;
-            entityIds.add(battlePokemon.getEntity().getId());
             float currentHealth = battlePokemon.getEffectedPokemon().getCurrentHealth();
             float maxHealth = battlePokemon.getEffectedPokemon().getMaxHealth();
             if (maxHealth <= 0F) continue;
+            entityIds.add(battlePokemon.getEntity().getId());
             health.add(currentHealth / maxHealth);
         }
         if (!entityIds.isEmpty()) {
