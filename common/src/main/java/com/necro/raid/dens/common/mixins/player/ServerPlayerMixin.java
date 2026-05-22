@@ -98,7 +98,7 @@ public abstract class ServerPlayerMixin extends Player implements IRaidTeleporte
         }
 
         if (this.crd_homePos != null && this.crd_homeLevel != null && RaidUtils.isRaidDimension(this.level())) {
-            Vec3 safeHomePos = RaidUtils.getSafeHomePos(this.crd_getHomeLevel(), this.crd_homePos, (ServerPlayer) (Object) this);
+            Vec3 safeHomePos = RaidUtils.getSafeHomePos(this.crd_getHomeLevel(), this.crd_homePos);
             compoundTag.put("Pos", this.newDoubleList(safeHomePos.x(), safeHomePos.y(), safeHomePos.z()));
             compoundTag.putString("Dimension", this.crd_homeLevel.toString());
         }
