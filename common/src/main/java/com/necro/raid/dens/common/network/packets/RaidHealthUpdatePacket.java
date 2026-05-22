@@ -36,10 +36,19 @@ public record RaidHealthUpdatePacket(List<Integer> entityIds, List<Float> health
     @Override
     public void handleClient() {
         if (Minecraft.getInstance().level == null) return;
-        for (int i = 0; i < this.entityIds().size(); i++) {
+        int count = Math.min(this.entityIds().size(), this.health().size());
+        for (int i = 0; i < count; i++) {
+            float healthRatio = this.health().get(i);
+            if (!Float.isFinite(healthRatio)) continue;
+
             int entityId = this.entityIds().get(i);
             Entity entity = Minecraft.getInstance().level.getEntity(entityId);
-            if (entity instanceof PokemonEntity pokemon) pokemon.getPokemon().setCurrentHealth((int) (this.health().get(i) * pokemon.getPokemon().getMaxHealth()));
+            if (entity instanceof PokemonEntity pokemon) {
+                int maxHealth = pokemon.getPokemon().getMaxHealth();
+                if (maxHealth <= 0) continue;
+                float clampedHealth = Math.max(0F, Math.min(1F, healthRatio));
+                pokemon.getPokemon().setCurrentHealth((int) (clampedHealth * maxHealth));
+            }
         }
     }
 }
