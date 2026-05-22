@@ -638,6 +638,10 @@ public class RaidInstance {
     }
 
     public void closeRaid(MinecraftServer server, boolean wasCancelled) {
+        RaidState closeState = wasCancelled ? RaidState.CANCELLED : this.raidState;
+        int participantCount = this.playerMap.size();
+        String bossPokemon = this.bossEntity.getPokemon().getSpecies().getName();
+
         if (this.shouldClearRaid() && this.isInDen) RaidHelper.clearRaid(this.raid, this.activePlayers);
         if (!this.bossEntity.isRemoved()) {
             if (this.bossEntity.level() instanceof ServerLevel level) {
@@ -653,10 +657,15 @@ public class RaidInstance {
         RaidRegion region = RaidRegionHelper.getRegion(this.raid);
         if (region != null && raidLevel != null) region.removeRegionTicket(raidLevel);
 
-        if (this.isInDen && raidLevel != null) RaidHelper.closeRaid(this.raid, wasCancelled ? RaidState.CANCELLED : this.raidState, raidLevel);
+        if (this.isInDen && raidLevel != null) RaidHelper.closeRaid(this.raid, closeState, raidLevel);
         else RaidHelper.ACTIVE_RAIDS.remove(this.raid);
         if (this.host != null) RaidHelper.removeRequests(this.host);
         RaidJoinHelper.removeParticipants(this.activePlayers);
+
+        CobblemonRaidDens.LOGGER.info(
+            "Closed raid {} against {} ({}) with state {} and {} participant(s)",
+            this.raid, bossPokemon, this.raidBoss.getId(), closeState, participantCount
+        );
     }
 
     private boolean shouldClearRaid() {
