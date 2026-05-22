@@ -8,6 +8,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import org.jetbrains.annotations.NotNull;
 
@@ -36,10 +37,19 @@ public record RaidHealthUpdatePacket(List<Integer> entityIds, List<Float> health
     @Override
     public void handleClient() {
         if (Minecraft.getInstance().level == null) return;
-        for (int i = 0; i < this.entityIds().size(); i++) {
-            int entityId = this.entityIds().get(i);
-            Entity entity = Minecraft.getInstance().level.getEntity(entityId);
-            if (entity instanceof PokemonEntity pokemon) pokemon.getPokemon().setCurrentHealth((int) (this.health().get(i) * pokemon.getPokemon().getMaxHealth()));
+
+        int count = Math.min(this.entityIds().size(), this.health().size());
+        for (int i = 0; i < count; i++) {
+            float healthRatio = this.health().get(i);
+            if (!Float.isFinite(healthRatio)) continue;
+
+            Entity entity = Minecraft.getInstance().level.getEntity(this.entityIds().get(i));
+            if (entity instanceof PokemonEntity pokemon) {
+                int maxHealth = pokemon.getPokemon().getMaxHealth();
+                if (maxHealth <= 0) continue;
+
+                pokemon.getPokemon().setCurrentHealth((int) (Mth.clamp(healthRatio, 0F, 1F) * maxHealth));
+            }
         }
     }
 }
