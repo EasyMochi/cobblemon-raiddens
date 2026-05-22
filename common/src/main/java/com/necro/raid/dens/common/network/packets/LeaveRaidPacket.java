@@ -29,5 +29,6 @@ public record LeaveRaidPacket() implements CustomPacketPayload, ServerPacket {
     @Override
     public void handleServer(ServerPlayer player) {
         RaidUtils.leaveRaid(player);
+        RaidUtils.returnHomeIfInRaidDimension(player);
     }
 }
