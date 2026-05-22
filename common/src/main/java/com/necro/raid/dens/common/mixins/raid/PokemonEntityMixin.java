@@ -145,7 +145,7 @@ public abstract class PokemonEntityMixin extends TamableAnimal implements IRaidA
         cir.setReturnValue(true);
     }
 
-    @Inject(method = "isBattling", at = @At("HEAD", cancellable = true, remap = false)
+    @Inject(method = "isBattling", at = @At("HEAD"), cancellable = true, remap = false)
     private void isBattlingInject(CallbackInfoReturnable<Boolean> cir) {
         if (this.crd_getRaidId() != null) cir.setReturnValue(true);
     }
