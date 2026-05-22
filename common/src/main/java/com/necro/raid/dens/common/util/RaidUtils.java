@@ -91,6 +91,33 @@ public class RaidUtils {
         teleportPlayerSafe(player, level, playerPos, 180f, 0f);
     }
 
+    public static boolean rescueFromRaidDimension(ServerPlayer player) {
+        if (player.getServer() == null || !isRaidDimension(player.level())) return false;
+
+        RaidDenNetworkMessages.JOIN_RAID.accept(player, false);
+        RaidHelper.removeRequests(player.getUUID());
+        RaidJoinHelper.removeParticipant(player);
+
+        ServerLevel targetLevel = null;
+        Vec3 targetPos = null;
+        if (player instanceof IRaidTeleporter teleporter) {
+            targetLevel = teleporter.crd_getHomeLevel();
+            targetPos = teleporter.crd_getHomePos();
+        }
+
+        if (targetLevel == null || isRaidDimension(targetLevel)) {
+            targetLevel = player.getServer().overworld();
+            targetPos = Vec3.atBottomCenterOf(targetLevel.getSharedSpawnPos());
+        }
+        else if (targetPos == null) {
+            targetPos = Vec3.atBottomCenterOf(targetLevel.getSharedSpawnPos());
+        }
+
+        teleportPlayerSafe(player, targetLevel, getSafeTeleportPos(targetLevel, targetPos), player.getYRot(), player.getXRot());
+        if (player instanceof IRaidTeleporter teleporter) teleporter.crd_clearHome();
+        return true;
+    }
+
     public static void teleportPlayerSafe(ServerPlayer player, ServerLevel level, Vec3 targetPos, float yaw, float pitch) {
         PlayerExtensionsKt.party(player).forEach(pokemon -> {
             if (pokemon.getState() instanceof ActivePokemonState && !(pokemon.getState() instanceof ShoulderedState)) pokemon.recall();
