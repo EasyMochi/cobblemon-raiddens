@@ -6,6 +6,7 @@ import com.necro.raid.dens.common.raids.helpers.RaidHelper;
 import com.necro.raid.dens.common.raids.helpers.RaidJoinHelper;
 import com.necro.raid.dens.common.registry.RaidBucketRegistry;
 import com.necro.raid.dens.common.showdown.events.RaidEvents;
+import com.necro.raid.dens.common.util.RaidUtils;
 import net.fabricmc.fabric.api.networking.v1.PacketSender;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.MinecraftServer;
@@ -18,6 +19,7 @@ public class ModEvents {
         ServerPlayer player = listener.getPlayer();
         RaidDenNetworkMessages.SYNC_CONFIG.accept(player);
         server.execute(() -> {
+            if (RaidUtils.rescueFromRaidDimension(player)) return;
             if (RaidJoinHelper.isParticipatingOrInQueue(player, false)) {
                 RaidDenNetworkMessages.JOIN_RAID.accept(player, true);
             }
