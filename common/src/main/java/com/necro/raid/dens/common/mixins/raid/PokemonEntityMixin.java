@@ -4,6 +4,7 @@ import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.util.DataKeys;
 import com.cobblemon.mod.common.util.PlayerExtensionsKt;
+import com.necro.raid.dens.common.CobblemonRaidDens;
 import com.necro.raid.dens.common.data.raid.RaidBoss;
 import com.necro.raid.dens.common.raids.RaidState;
 import com.necro.raid.dens.common.util.IRaidAccessor;
@@ -144,7 +145,7 @@ public abstract class PokemonEntityMixin extends TamableAnimal implements IRaidA
         cir.setReturnValue(true);
     }
 
-    @Inject(method = "isBattling", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "isBattling", at = @At("HEAD", cancellable = true, remap = false)
     private void isBattlingInject(CallbackInfoReturnable<Boolean> cir) {
         if (this.crd_getRaidId() != null) cir.setReturnValue(true);
     }
@@ -160,8 +161,26 @@ public abstract class PokemonEntityMixin extends TamableAnimal implements IRaidA
 
     @Inject(method = "load", at = @At("RETURN"))
     private void loadInject(CompoundTag nbt, CallbackInfo ci) {
-        if (nbt.contains("raid_id")) this.crd_raidId = UUID.fromString(nbt.getString("raid_id"));
-        if (nbt.contains("raid_boss")) this.crd_raidBoss = ResourceLocation.parse(nbt.getString("raid_boss"));
+        if (nbt.contains("raid_id")) {
+            String raidId = nbt.getString("raid_id");
+            try {
+                this.crd_raidId = UUID.fromString(raidId);
+            }
+            catch (IllegalArgumentException e) {
+                CobblemonRaidDens.LOGGER.warn("Ignoring malformed raid entity UUID '{}'", raidId);
+                this.crd_raidId = null;
+            }
+        }
+        if (nbt.contains("raid_boss")) {
+            String raidBoss = nbt.getString("raid_boss");
+            try {
+                this.crd_raidBoss = ResourceLocation.parse(raidBoss);
+            }
+            catch (Exception e) {
+                CobblemonRaidDens.LOGGER.warn("Ignoring malformed raid boss id '{}' on raid entity", raidBoss);
+                this.crd_raidBoss = null;
+            }
+        }
         this.crd_flagRemove = nbt.contains("raid_flag_remove");
         if (nbt.contains("raid_state")) this.crd_raidState = nbt.getInt("raid_state") == 1 ? RaidState.SUCCESS : RaidState.FAILED;
 
