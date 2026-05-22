@@ -1,6 +1,5 @@
 package com.necro.raid.dens.fabric.network;
 
-import com.cobblemon.mod.common.battles.BattleFormat;
 import com.necro.raid.dens.common.network.ClientPacket;
 import com.necro.raid.dens.common.network.RaidDenNetworkMessages;
 import com.necro.raid.dens.common.network.ServerPacket;
@@ -71,7 +70,7 @@ public class NetworkMessages {
             NetworkMessages.sendPacketToPlayer(player, new RaidHealthUpdatePacket(entityIds, health));
 
         RaidDenNetworkMessages.RAID_CHALLENGE = (pokemonEntity, pokemon) ->
-            NetworkMessages.sendPacketToServer(new RaidChallengePacket(pokemonEntity.getId(), pokemon.getUuid(), BattleFormat.Companion.getGEN_9_SINGLES()));
+            NetworkMessages.sendPacketToServer(new RaidChallengePacket(pokemonEntity.getId(), pokemon.getUuid()));
         RaidDenNetworkMessages.LEAVE_RAID = () -> NetworkMessages.sendPacketToServer(new LeaveRaidPacket());
         RaidDenNetworkMessages.REQUEST_RESPONSE = (accept, player) ->
             NetworkMessages.sendPacketToServer(new RequestResponsePacket(accept, player));
