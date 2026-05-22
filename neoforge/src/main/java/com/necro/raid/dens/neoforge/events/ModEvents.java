@@ -40,6 +40,7 @@ public class ModEvents {
         if (!(event.getEntity() instanceof ServerPlayer player) || player.getServer() == null) return;
         RaidDenNetworkMessages.SYNC_CONFIG.accept(player);
         player.getServer().execute(() -> {
+            if (RaidUtils.rescueFromRaidDimension(player)) return;
             if (RaidJoinHelper.isParticipatingOrInQueue(player, false)) {
                 RaidDenNetworkMessages.JOIN_RAID.accept(player, true);
             }
